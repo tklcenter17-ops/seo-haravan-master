@@ -1,0 +1,21 @@
+# Haravan CLI
+.haravan-cli_local.json
+
+# Ignore toàn bộ workspace, chỉ track đúng thư mục cần
+/*
+!/seo/
+!/.agents/
+!/.gitignore
+!/README.md
+
+# Bên trong .agents chỉ track skills/seo-haravan-injector
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/seo-haravan-injector/
+
+# Ignore file nặng
+*.zip
+*.rar
+*.tar.gz
+node_modules/
