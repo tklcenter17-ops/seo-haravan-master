@@ -240,16 +240,18 @@ async def post_init(application: Application) -> None:
 
                             if new_lots:
                                 logger.info(f"Radar tự động phát hiện {len(new_lots)} lô bật lửa mới kết thúc hôm nay.")
-                                msg_text = format_radar_message(new_lots)
-                                try:
-                                    await application.bot.send_message(
-                                        chat_id=owner_id,
-                                        text=f"🚨 <b>[TỰ ĐỘNG BÁO LÔ MỚI]</b>\n{msg_text}",
-                                        parse_mode="HTML",
-                                        disable_web_page_preview=True,
-                                    )
-                                except Exception as send_err:
-                                    logger.warning(f"Lỗi gửi tin nhắn radar: {send_err}")
+                                from radar_service import format_radar_chunks
+                                chunks = format_radar_chunks(new_lots, chunk_size=8)
+                                for chunk in chunks:
+                                    try:
+                                        await application.bot.send_message(
+                                            chat_id=owner_id,
+                                            text=f"🚨 <b>[TỰ ĐỘNG BÁO LÔ MỚI]</b>\n{chunk}",
+                                            parse_mode="HTML",
+                                            disable_web_page_preview=True,
+                                        )
+                                    except Exception as send_err:
+                                        logger.warning(f"Lỗi gửi tin nhắn radar: {send_err}")
                     finally:
                         c.close()
             except Exception as loop_err:

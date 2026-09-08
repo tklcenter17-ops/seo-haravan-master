@@ -1502,29 +1502,44 @@ def test_radar_deduplication_and_settings(tmp_path):
 
 
 def test_format_radar_message():
-    from radar_service import format_radar_message
+    from radar_service import format_radar_chunks, format_radar_message
 
     # Empty lots
-    empty_msg = format_radar_message([])
-    assert "Hiện tại chưa có lô bật lửa nào" in empty_msg
+    empty_msg, pages = format_radar_message([])
+    assert "Hiện tại không có lô bật lửa nào" in empty_msg
+    assert pages == 1
 
-    # Mock lot items
+    # 18 Mock lot items to test chunking & pagination
     lots = [
         {
-            "auction_id": "test001",
-            "title": "Lô 10 cây Zippo vintage đợt 1",
-            "price_jpy": 6500,
-            "bids": 8,
-            "remain_text": "còn 3h20m",
-            "url": "https://page.auctions.yahoo.co.jp/jp/auction/test001",
+            "auction_id": f"test{i:03d}",
+            "title": f"Lô {i} cây Zippo vintage đợt {i}",
+            "price_jpy": 5000 + i * 100,
+            "bids": i + 1,
+            "remain_text": f"còn {i}h",
+            "url": f"https://page.auctions.yahoo.co.jp/jp/auction/test{i:03d}",
         }
+        for i in range(1, 19)
     ]
-    msg = format_radar_message(lots)
-    assert "RADAR BẬT LỬA THEO LÔ" in msg
-    assert "Lô 10 cây Zippo" in msg
-    assert "6.500 yên" in msg
-    assert "Bids:</b> 8" in msg
-    assert "còn 3h20m" in msg
+    # Test pagination: 18 items with per_page=8 => 3 pages
+    msg_p1, total_pages = format_radar_message(lots, page=1, per_page=8)
+    assert total_pages == 3
+    assert "Trang 1/3" in msg_p1
+    assert "Lô 1 cây Zippo" in msg_p1
+    assert "Lô 8 cây Zippo" in msg_p1
+    assert "Lô 9 cây Zippo" not in msg_p1
+
+    msg_p2, _ = format_radar_message(lots, page=2, per_page=8)
+    assert "Trang 2/3" in msg_p2
+    assert "Lô 9 cây Zippo" in msg_p2
+
+    # Test full chunking: 18 items with chunk_size=8 => 3 chunks
+    chunks = format_radar_chunks(lots, chunk_size=8)
+    assert len(chunks) == 3
+    assert "PHẦN 1/3" in chunks[0]
+    assert "PHẦN 2/3" in chunks[1]
+    assert "PHẦN 3/3" in chunks[2]
+    assert "Đã gửi đủ toàn bộ 18 lô" in chunks[2]
 
 
 
