@@ -246,7 +246,14 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await help_command(update, context)
         return
 
-    # 0.2 Kiểm tra tra cứu nhanh mã bản ghi trong kho: Q0001 hoặc #Q0001
+    # 0.2 Bắt các từ khóa chào hỏi hoặc yêu cầu xem menu trực tiếp
+    t_clean = text.lower().strip()
+    if t_clean in ["hi", "hello", "alo", "chao", "chào", "xin chao", "xin chào", "menu", "bảng menu", "bang menu", "bàn phím", "ban phim"]:
+        from handlers.start import menu_command
+        await menu_command(update, context)
+        return
+
+    # 0.3 Kiểm tra tra cứu nhanh mã bản ghi trong kho: Q0001 hoặc #Q0001
     import re
     m_qid = re.match(r"^#?(Q\d{4})$", text, re.IGNORECASE)
     if m_qid:

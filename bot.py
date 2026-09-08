@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import sys
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
+from telegram.request import HTTPXRequest
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -325,8 +326,14 @@ def main() -> None:
     init_database(config.db_path)
     logger.info(f"Khởi tạo database tại {config.db_path} thành công.")
 
-    # Khởi tạo Telegram Bot Application
-    app = Application.builder().token(config.bot_token).post_init(post_init).build()
+    # Khởi tạo Telegram Bot Application với timeout 30s đảm bảo đường truyền ổn định
+    client_request = HTTPXRequest(
+        connection_pool_size=8,
+        connect_timeout=30.0,
+        read_timeout=30.0,
+        write_timeout=30.0,
+    )
+    app = Application.builder().token(config.bot_token).request(client_request).post_init(post_init).build()
     app.bot_data["config"] = config
 
     # Đăng ký Security Middleware (Group -1 chạy đầu tiên)

@@ -123,6 +123,11 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
     elif data == "menu:main":
         await query.message.reply_html(
+            "🎛 <b>BẢNG ĐIỀU KHIỂN BẤM NHANH ĐÃ BẬT!</b>\n"
+            "Bàn phím menu luôn cố định dưới ô nhập tin nhắn để anh click ngay không cần gõ lệnh.",
+            reply_markup=get_persistent_reply_keyboard(),
+        )
+        await query.message.reply_html(
             "🎛 <b>BẢNG CHỨC NĂNG CHÍNH:</b>",
             reply_markup=get_main_menu_keyboard(),
         )
