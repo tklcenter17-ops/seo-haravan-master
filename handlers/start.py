@@ -1,7 +1,7 @@
 """Handler lệnh /start, /help và menu chính."""
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 HELP_TEXT = """🔥 <b>TRỢ LÝ SĂN & DỌN QUẸT CHUYÊN SÂU (V4.1)</b>
@@ -23,6 +23,7 @@ HELP_TEXT = """🔥 <b>TRỢ LÝ SĂN & DỌN QUẸT CHUYÊN SÂU (V4.1)</b>
 
 <b>4. Radar Săn Lô Bật Lửa (Hôm Nay):</b>
 • <code>/radar</code> hoặc <code>/radar_lot</code>: Quét ngay các lô bật lửa có lượt bid kết thúc trong ngày hôm nay trên Yahoo Auctions.
+• <code>/radar all</code>: Bắn toàn bộ 100% tất cả các lô hôm nay dạng tin nhắn liên tục.
 
 <b>5. Quản lý dọn lô & phân bổ giá vốn:</b>
 • <code>/donlo</code>: Xem danh sách các lô quẹt trong kho chờ dọn
@@ -34,6 +35,25 @@ HELP_TEXT = """🔥 <b>TRỢ LÝ SĂN & DỌN QUẸT CHUYÊN SÂU (V4.1)</b>
 • <code>/cap Q0001 [giá]</code>: Đặt mốc trần bid cá nhân | <code>/undo</code>: Hoàn tác
 • <code>/export</code>: Xuất toàn bộ kho ra CSV & JSON | <code>/stats</code>: Thống kê kho
 """
+
+
+def get_persistent_reply_keyboard() -> ReplyKeyboardMarkup:
+    """Tạo bảng menu bàn phím cố định nằm ngay dưới ô gõ chữ Telegram để click nhanh mọi lúc."""
+    keyboard = [
+        [
+            KeyboardButton("🎯 Radar Lô Hôm Nay"),
+            KeyboardButton("📜 Toàn Bộ Lô (Full)"),
+        ],
+        [
+            KeyboardButton("📦 Dọn Lô Kho"),
+            KeyboardButton("📋 10 Cây Gần Nhất"),
+        ],
+        [
+            KeyboardButton("📊 Thống Kê Kho"),
+            KeyboardButton("❓ Hướng Dẫn"),
+        ],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
 
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
@@ -58,15 +78,29 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     text = (
         "Chào anh Lâm! Đây là bot ghi nhớ giá đấu quẹt riêng của anh.\n\n"
-        "Anh có thể nhập một dòng để lưu giá thắng hoặc gõ tên quẹt để tra cứu ngay khi đang đấu."
+        "Anh có thể bấm các nút trực tiếp ngay trên <b>Bàn phím Menu bên dưới</b> để mở nhanh Radar hoặc tra cứu kho."
     )
-    await update.effective_message.reply_html(text, reply_markup=get_main_menu_keyboard())
+    # Gửi tin nhắn kèm bàn phím bấm nhanh cố định dưới màn hình
+    await update.effective_message.reply_html(text, reply_markup=get_persistent_reply_keyboard())
+    # Gửi kèm bảng menu chức năng inline
+    await update.effective_message.reply_html("🎛 <b>BẢNG CHỨC NĂNG CHÍNH:</b>", reply_markup=get_main_menu_keyboard())
+
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lệnh /menu: Bật lại bảng menu bàn phím thao tác nhanh."""
+    if not update.effective_message:
+        return
+    await update.effective_message.reply_html(
+        "🎛 <b>BẢNG ĐIỀU KHIỂN BẤM NHANH ĐÃ SẴN SÀNG!</b>\n"
+        "Bàn phím menu luôn cố định dưới ô nhập tin nhắn để anh click ngay không cần gõ lệnh.",
+        reply_markup=get_persistent_reply_keyboard(),
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_message:
         return
-    await update.effective_message.reply_html(HELP_TEXT, reply_markup=get_main_menu_keyboard())
+    await update.effective_message.reply_html(HELP_TEXT, reply_markup=get_persistent_reply_keyboard())
 
 
 async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -87,3 +121,14 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "Anh chỉ cần gõ tên quẹt trực tiếp vào ô chat này.\n"
             "Ví dụ: <code>dupont xanh la 1 line son mai</code>"
         )
+    elif data == "menu:main":
+        await query.message.reply_html(
+            "🎛 <b>BẢNG CHỨC NĂNG CHÍNH:</b>",
+            reply_markup=get_main_menu_keyboard(),
+        )
+    elif data == "menu:recent":
+        from handlers.record_mgmt import recent_command
+        await recent_command(update, context)
+    elif data == "menu:stats":
+        from handlers.admin import stats_command
+        await stats_command(update, context)

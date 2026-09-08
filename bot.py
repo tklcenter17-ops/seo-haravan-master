@@ -30,7 +30,7 @@ from handlers.record_mgmt import (
     view_command,
 )
 from handlers.search_handlers import find_command, quick_add_callback, search_callback, text_search_handler
-from handlers.start import help_command, menu_callback, start_command
+from handlers.start import help_command, menu_callback, menu_command, start_command
 from repository import mark_update_processed, register_update_if_new
 
 logging.basicConfig(
@@ -262,6 +262,21 @@ async def post_init(application: Application) -> None:
 
     asyncio.create_task(_radar_worker_loop())
 
+    # Đăng ký danh sách lệnh trực quan vào nút Menu chuẩn của Telegram
+    try:
+        from telegram import BotCommand
+        await application.bot.set_my_commands([
+            BotCommand("radar", "🎯 Quét các lô bật lửa có bid hôm nay"),
+            BotCommand("menu", "🎛 Bật bảng menu bàn phím bấm nhanh"),
+            BotCommand("donlo", "📦 Quản lý dọn lô & phân bổ vốn"),
+            BotCommand("recent", "📋 10 bản ghi gần nhất"),
+            BotCommand("stats", "📊 Thống kê kho quẹt"),
+            BotCommand("help", "❓ Hướng dẫn sử dụng"),
+        ])
+        logger.info("Đã đăng ký danh sách lệnh nhanh cho Telegram Bot Menu.")
+    except Exception as cmd_err:
+        logger.warning(f"Không thể cập nhật set_my_commands: {cmd_err}")
+
 
 def _start_health_check_server(port: int) -> None:
     """Máy chủ HTTP siêu nhẹ phục vụ Health-Check cho các nền tảng Cloud (Render, Koyeb, Railway)."""
@@ -331,6 +346,7 @@ def main() -> None:
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("cancel", cancel_command))
     app.add_handler(CommandHandler("donlo", donlo_command))
+    app.add_handler(CommandHandler("menu", menu_command))
     app.add_handler(CommandHandler(["radar", "radar_lot"], radar_command))
 
     # Đăng ký Callback Handlers

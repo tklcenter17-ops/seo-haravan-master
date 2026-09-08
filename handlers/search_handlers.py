@@ -73,6 +73,11 @@ def get_group_detail_keyboard(group: SearchGroup) -> InlineKeyboardMarkup:
         InlineKeyboardButton("📋 Xem tất cả lần mua", callback_data=f"grp_tx:{group.scope_key[:32]}")
     ])
 
+    keyboard.append([
+        InlineKeyboardButton("🎯 Radar Lô Hôm Nay", callback_data="radar_refresh"),
+        InlineKeyboardButton("🎛 Bảng Menu", callback_data="menu:main"),
+    ])
+
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -214,7 +219,34 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if text.startswith("/"):
         return
 
-    # 0. Kiểm tra tra cứu nhanh mã bản ghi trong kho: Q0001 hoặc #Q0001
+    # 0.1 Bắt các nút bấm từ Bảng Menu bàn phím cố định để thực thi lệnh tức thì
+    if "🎯 Radar Lô Hôm Nay" in text:
+        from handlers.radar_handlers import radar_command
+        await radar_command(update, context)
+        return
+    if "📜 Toàn Bộ Lô" in text or "📜 Báo Toàn Bộ" in text:
+        from handlers.radar_handlers import radar_command
+        context.args = ["all"]
+        await radar_command(update, context)
+        return
+    if "📦 Dọn Lô Kho" in text or "📦 Dọn Lô" in text:
+        from handlers.record_mgmt import donlo_command
+        await donlo_command(update, context)
+        return
+    if "📋 10 Cây Gần Nhất" in text or "📋 Kho Gần Đây" in text:
+        from handlers.record_mgmt import recent_command
+        await recent_command(update, context)
+        return
+    if "📊 Thống Kê Kho" in text or "📊 Thống Kê" in text:
+        from handlers.admin import stats_command
+        await stats_command(update, context)
+        return
+    if "❓ Hướng Dẫn" in text:
+        from handlers.start import help_command
+        await help_command(update, context)
+        return
+
+    # 0.2 Kiểm tra tra cứu nhanh mã bản ghi trong kho: Q0001 hoặc #Q0001
     import re
     m_qid = re.match(r"^#?(Q\d{4})$", text, re.IGNORECASE)
     if m_qid:

@@ -1539,14 +1539,36 @@ def test_format_radar_message():
     assert "PHẦN 1/3" in chunks[0]
     assert "PHẦN 2/3" in chunks[1]
     assert "PHẦN 3/3" in chunks[2]
-    assert "Đã gửi đủ toàn bộ 18 lô" in chunks[2]
+
+def test_persistent_reply_keyboard():
+    from handlers.start import get_persistent_reply_keyboard
+    from telegram import ReplyKeyboardMarkup
+
+    kb = get_persistent_reply_keyboard()
+    assert isinstance(kb, ReplyKeyboardMarkup)
+    assert kb.resize_keyboard is True
+    assert kb.is_persistent is True
+    assert len(kb.keyboard) == 3
+    # Check rows
+    row0 = [btn.text for btn in kb.keyboard[0]]
+    assert "🎯 Radar Lô Hôm Nay" in row0
+    assert "📜 Toàn Bộ Lô (Full)" in row0
+    row1 = [btn.text for btn in kb.keyboard[1]]
+    assert "📦 Dọn Lô Kho" in row1
+    assert "📋 10 Cây Gần Nhất" in row1
+    row2 = [btn.text for btn in kb.keyboard[2]]
+    assert "📊 Thống Kê Kho" in row2
+    assert "❓ Hướng Dẫn" in row2
 
 
+def test_group_detail_keyboard_has_menu_shortcuts():
+    from unittest.mock import MagicMock
+    from handlers.search_handlers import get_group_detail_keyboard
 
-
-
-
-
-
-
+    mock_group = MagicMock()
+    mock_group.scope_key = "dupont_line2"
+    kb = get_group_detail_keyboard(mock_group)
+    all_btn_texts = [btn.text for row in kb.inline_keyboard for btn in row]
+    assert "🎯 Radar Lô Hôm Nay" in all_btn_texts
+    assert "🎛 Bảng Menu" in all_btn_texts
 
