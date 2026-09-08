@@ -63,12 +63,24 @@ async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     args = context.args or []
     send_all_requested = any(a.lower() in ("all", "full", "tatca") for a in args)
 
-    wait_msg = await msg.reply_text(
-        "🔍 <i>Radar đang quét sâu toàn bộ Yahoo Auctions tìm các lô bật lửa có bid kết thúc hôm nay... Chờ em 3-5 giây!</i>",
-        parse_mode="HTML",
-    )
+    # 1. Báo trạng thái typing ngay lập tức
+    try:
+        await context.bot.send_chat_action(chat_id=msg.chat_id, action="typing")
+    except Exception:
+        pass
+
+    # 2. Gửi tin nhắn thông báo tiến trình rõ ràng cho người dùng
+    wait_msg = None
+    try:
+        wait_msg = await msg.reply_html(
+            "🔍 <b>Radar đang quét sâu các lô bật lửa hôm nay trên Yahoo Auctions...</b>\n"
+            "<i>Đang rà soát 10 danh mục và các phiên có lượt bid, anh chờ em 3-5 giây nhé!</i>"
+        )
+    except Exception as e:
+        logger.warning(f"Không thể gửi tin nhắn loading ban đầu: {e}")
 
     try:
+        import asyncio
         lots = await scan_today_lighter_lots()
         _RADAR_CACHE["lots"] = lots
 
@@ -83,23 +95,42 @@ async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 conn.close()
 
         if send_all_requested:
-            # Gửi toàn bộ dạng chunks
+            # Gửi toàn bộ dạng chunks với giãn cách an toàn
             chunks = format_radar_chunks(lots, chunk_size=8)
-            await wait_msg.delete()
+            if wait_msg:
+                try:
+                    await wait_msg.delete()
+                except Exception:
+                    pass
             for chunk in chunks:
-                await msg.reply_text(chunk, parse_mode="HTML", disable_web_page_preview=True)
+                await msg.reply_html(chunk, disable_web_page_preview=True)
+                await asyncio.sleep(1.0)
         else:
             formatted_text, total_pages = format_radar_message(lots, page=1, per_page=8)
             keyboard = _get_radar_page_keyboard(1, total_pages, len(lots), is_auto_on)
-            await wait_msg.edit_text(
-                formatted_text,
-                parse_mode="HTML",
-                reply_markup=keyboard,
-                disable_web_page_preview=True,
-            )
+            if wait_msg:
+                await wait_msg.edit_text(
+                    formatted_text,
+                    parse_mode="HTML",
+                    reply_markup=keyboard,
+                    disable_web_page_preview=True,
+                )
+            else:
+                await msg.reply_html(
+                    formatted_text,
+                    reply_markup=keyboard,
+                    disable_web_page_preview=True,
+                )
     except Exception as e:
         logger.error(f"Lỗi khi thực thi lệnh /radar: {e}", exc_info=True)
-        await wait_msg.edit_text(f"⚠️ <i>Có lỗi xảy ra khi quét Yahoo Auctions: {e}</i>", parse_mode="HTML")
+        err_text = f"⚠️ <i>Có lỗi xảy ra khi quét Yahoo Auctions: {e}</i>"
+        if wait_msg:
+            try:
+                await wait_msg.edit_text(err_text, parse_mode="HTML")
+            except Exception:
+                await msg.reply_html(err_text)
+        else:
+            await msg.reply_html(err_text)
 
 
 async def radar_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

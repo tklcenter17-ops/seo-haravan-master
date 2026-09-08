@@ -6,6 +6,7 @@ import sys
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.request import HTTPXRequest
 from telegram.ext import (
+    AIORateLimiter,
     Application,
     CallbackQueryHandler,
     CommandHandler,
@@ -209,7 +210,7 @@ async def post_init(application: Application) -> None:
 
     # Khởi động vòng lặp Radar tự động quét các lô bật lửa có bid kết thúc hôm nay
     async def _radar_worker_loop():
-        await asyncio.sleep(10)  # Đợi bot ổn định 10s sau khi khởi động
+        await asyncio.sleep(120)  # Đợi bot ổn định 2 phút sau khi khởi động, nhường đường truyền cho người dùng chat
         from datetime import datetime, timezone, timedelta
         from radar_service import format_radar_message, scan_today_lighter_lots
         from repository import get_radar_setting, is_lot_seen, mark_lot_seen
@@ -251,6 +252,7 @@ async def post_init(application: Application) -> None:
                                             parse_mode="HTML",
                                             disable_web_page_preview=True,
                                         )
+                                        await asyncio.sleep(2.0)  # Giãn cách 2 giây giữa các chunk để chống flood rate limit
                                     except Exception as send_err:
                                         logger.warning(f"Lỗi gửi tin nhắn radar: {send_err}")
                     finally:
@@ -333,7 +335,17 @@ def main() -> None:
         read_timeout=30.0,
         write_timeout=30.0,
     )
-    app = Application.builder().token(config.bot_token).request(client_request).post_init(post_init).build()
+    rate_limiter = None
+    try:
+        from telegram.ext import AIORateLimiter
+        rate_limiter = AIORateLimiter()
+    except Exception as rl_err:
+        logger.warning(f"AIORateLimiter chưa sẵn sàng: {rl_err}")
+
+    builder = Application.builder().token(config.bot_token).request(client_request).post_init(post_init)
+    if rate_limiter:
+        builder = builder.rate_limiter(rate_limiter)
+    app = builder.build()
     app.bot_data["config"] = config
 
     # Đăng ký Security Middleware (Group -1 chạy đầu tiên)

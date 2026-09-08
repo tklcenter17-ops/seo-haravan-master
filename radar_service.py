@@ -227,36 +227,40 @@ async def scan_today_lighter_lots(queries: list[str] | None = None) -> list[dict
     now_utc = datetime.now(timezone.utc)
     all_matched: dict[str, dict[str, Any]] = {}
 
-    for q in queries:
-        try:
-            items = await fetch_yahoo_search_full_blocks(q, limit=100)
-            for it in items:
-                aid = it["auction_id"]
-                if aid in all_matched:
-                    continue
+    # Chạy song song đồng thời tất cả các queries để tốc độ quét siêu tốc (2-4 giây thay vì 40 giây)
+    import asyncio
+    tasks = [fetch_yahoo_search_full_blocks(q, limit=100) for q in queries]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                title = it.get("title", "")
-                bids = it.get("bids", 0)
-                endtime_raw = it.get("end_time", "")
+    for res in results:
+        if isinstance(res, Exception):
+            logger.warning(f"Lỗi quét query Yahoo: {res}")
+            continue
+        for it in res:
+            aid = it["auction_id"]
+            if aid in all_matched:
+                continue
 
-                # Bộ lọc 1: Bắt buộc là Lot bật lửa thực sự
-                if not is_lot_title(title):
-                    continue
+            title = it.get("title", "")
+            bids = it.get("bids", 0)
+            endtime_raw = it.get("end_time", "")
 
-                # Bộ lọc 2: Bắt buộc có lượt Bid (> 0)
-                if bids <= 0:
-                    continue
+            # Bộ lọc 1: Bắt buộc là Lot bật lửa thực sự
+            if not is_lot_title(title):
+                continue
 
-                # Bộ lọc 3: Bắt buộc kết thúc trong ngày hôm nay
-                is_today, remain_str, remain_mins = is_ending_today(endtime_raw, now_utc=now_utc)
-                if not is_today:
-                    continue
+            # Bộ lọc 2: Bắt buộc có lượt Bid (> 0)
+            if bids <= 0:
+                continue
 
-                it["remain_text"] = remain_str
-                it["remain_mins"] = remain_mins
-                all_matched[aid] = it
-        except Exception as err:
-            logger.warning(f"Lỗi quét query '{q}': {err}")
+            # Bộ lọc 3: Bắt buộc kết thúc trong ngày hôm nay
+            is_today, remain_str, remain_mins = is_ending_today(endtime_raw, now_utc=now_utc)
+            if not is_today:
+                continue
+
+            it["remain_text"] = remain_str
+            it["remain_mins"] = remain_mins
+            all_matched[aid] = it
 
     # Sắp xếp toàn bộ danh sách theo thời gian kết thúc sớm nhất lên đầu
     sorted_lots = sorted(all_matched.values(), key=lambda x: x.get("remain_mins", 999999))
