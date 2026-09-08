@@ -46,6 +46,10 @@ async def auth_and_idempotency_middleware(update: Update, context: ContextTypes.
     """Middleware kiểm tra quyền sở hữu (Owner ID) và chống trùng update (Idempotency)."""
     cfg = context.bot_data["config"]
     user = update.effective_user
+    msg = update.effective_message
+    text_content = msg.text if msg else (update.callback_query.data if update.callback_query else "")
+
+    logger.info(f"👉 [NHẬN UPDATE {update.update_id}] user={user.id if user else None} (@{user.username if user else None}) | type={update.effective_chat.type if update.effective_chat else None} | content='{text_content}'")
 
     # Nếu chưa thiết lập owner_id (owner_id == 0), tự động khoá với tài khoản đầu tiên kích hoạt
     if cfg.owner_id == 0 and user:
@@ -66,8 +70,12 @@ async def auth_and_idempotency_middleware(update: Update, context: ContextTypes.
 
     # 1. Kiểm tra quyền sở hữu
     if not user or user.id != context.bot_data["config"].owner_id:
+        logger.warning(f"⛔ TỪ CHỐI USER: user_id={user.id if user else None} không khớp owner_id={context.bot_data['config'].owner_id}")
         if update.effective_message:
-            await update.effective_message.reply_text("⛔ Bạn không có quyền truy cập bot này.")
+            try:
+                await update.effective_message.reply_text(f"⛔ Bạn không có quyền truy cập bot này (ID của bạn: {user.id if user else 'unknown'}).")
+            except Exception as e:
+                logger.warning(f"Không thể gửi tin từ chối: {e}")
         return
 
     # 2. Kiểm tra Idempotency cho update
@@ -263,7 +271,8 @@ async def post_init(application: Application) -> None:
             # Quét định kỳ mỗi 30 phút (1800 giây)
             await asyncio.sleep(1800)
 
-    asyncio.create_task(_radar_worker_loop())
+    # Tắt tạm worker loop tự động chạy nền để tránh xung đột rate limit Telegram khi khởi động
+    # asyncio.create_task(_radar_worker_loop())
 
     # Đăng ký danh sách lệnh trực quan vào nút Menu chuẩn của Telegram
     try:

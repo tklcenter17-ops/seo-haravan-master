@@ -1,8 +1,11 @@
 """Handler lệnh /start, /help và menu chính."""
 from __future__ import annotations
 
+import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes
+
+logger = logging.getLogger(__name__)
 
 HELP_TEXT = """🔥 <b>TRỢ LÝ SĂN & DỌN QUẸT CHUYÊN SÂU (V4.1)</b>
 
@@ -76,6 +79,8 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_message:
         return
+    user = update.effective_user
+    logger.info(f"🚀 start_command được gọi từ user: {user.id if user else None}")
     text = (
         "Chào anh Lâm! Đây là bot ghi nhớ giá đấu quẹt riêng của anh.\n\n"
         "Anh có thể bấm các nút trực tiếp ngay trên <b>Bàn phím Menu bên dưới</b> để mở nhanh Radar hoặc tra cứu kho."
@@ -90,6 +95,8 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Lệnh /menu: Bật lại bảng menu bàn phím thao tác nhanh."""
     if not update.effective_message:
         return
+    user = update.effective_user
+    logger.info(f"🎛 menu_command được gọi từ user: {user.id if user else None}")
     await update.effective_message.reply_html(
         "🎛 <b>BẢNG ĐIỀU KHIỂN BẤM NHANH ĐÃ SẴN SÀNG!</b>\n"
         "Bàn phím menu luôn cố định dưới ô nhập tin nhắn để anh click ngay không cần gõ lệnh.",

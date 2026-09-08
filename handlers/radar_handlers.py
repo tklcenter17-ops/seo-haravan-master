@@ -60,6 +60,8 @@ async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not msg:
         return
 
+    logger.info(f"🎯 [RADAR] Nhận lệnh từ user: {msg.from_user.id if msg.from_user else None} | text='{msg.text}'")
+
     args = context.args or []
     send_all_requested = any(a.lower() in ("all", "full", "tatca") for a in args)
 
