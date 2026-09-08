@@ -143,6 +143,26 @@ CREATE TABLE IF NOT EXISTS auction_alarms (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_alarms_pending ON auction_alarms(is_sent, trigger_at_ts);
+
+-- Bảng lưu các lô bật lửa đã quét và thông báo qua Radar
+CREATE TABLE IF NOT EXISTS radar_seen_lots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    auction_id TEXT NOT NULL,
+    seen_date TEXT NOT NULL,
+    title TEXT NOT NULL,
+    price_jpy INTEGER NOT NULL,
+    bids INTEGER NOT NULL DEFAULT 0,
+    end_time TEXT NOT NULL,
+    sent_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_radar_seen_aid_date ON radar_seen_lots(auction_id, seen_date);
+
+-- Bảng cài đặt radar
+CREATE TABLE IF NOT EXISTS radar_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 

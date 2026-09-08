@@ -25,6 +25,7 @@ async function createZip() {
     'normalizer.py',
     'parser.py',
     'pricing.py',
+    'radar_service.py',
     'repository.py',
     'search.py',
     'requirements.txt',

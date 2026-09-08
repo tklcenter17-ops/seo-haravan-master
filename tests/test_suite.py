@@ -1435,6 +1435,99 @@ def test_t70_quick_record_id_and_image_extraction():
     assert lot["unit_price_jpy"] > 0
 
 
+def test_radar_is_lot_title():
+    from radar_service import is_lot_title
+    # Positive lot cases
+    assert is_lot_title("ライター まとめ 15点 ジャンク") is True
+    assert is_lot_title("S.T.Dupont ダンヒル 5本セット 大量") is True
+    assert is_lot_title("ジッポ ライター 詰め合わせ 20個") is True
+    assert is_lot_title("ガスライター 8本 アソート") is True
+    assert is_lot_title("ヴィンテージ オイルライター まとめ売り") is True
+
+    # Negative non-lot cases
+    assert is_lot_title("S.T.Dupont ライン2 モンパルナス 銀仕上げ 美品") is False
+    assert is_lot_title("Dunhill Rollagas Gold 1点のみ 単品") is False
+    assert is_lot_title("Zippo 1994 Solid Brass") is False
+
+
+def test_radar_is_ending_today():
+    from datetime import datetime, timezone, timedelta
+    from radar_service import is_ending_today
+
+    jst = timezone(timedelta(hours=9))
+    now_utc = datetime(2026, 9, 8, 5, 0, 0, tzinfo=timezone.utc)  # 14:00 JST ngày 2026-09-08
+
+    # 1. Kết thúc hôm nay lúc 21:00 JST (còn 7 tiếng)
+    is_today, remain_text, remain_mins = is_ending_today("2026-09-08 21:00:00", now_utc=now_utc)
+    assert is_today is True
+    assert "còn 7h00m" in remain_text
+    assert remain_mins == 420
+
+    # 2. Đã kết thúc lúc 10:00 JST (trong quá khứ)
+    is_today, remain_text, remain_mins = is_ending_today("2026-09-08 10:00:00", now_utc=now_utc)
+    assert is_today is False
+    assert remain_text == "Đã hết giờ"
+
+    # 3. Kết thúc ngày mai (2026-09-09)
+    is_today, remain_text, remain_mins = is_ending_today("2026-09-09 15:00:00", now_utc=now_utc)
+    assert is_today is False
+    assert "Ngày mai" in remain_text
+
+    # 4. Chuỗi ngày không hợp lệ
+    is_today, remain_text, remain_mins = is_ending_today("invalid-date", now_utc=now_utc)
+    assert is_today is False
+
+
+def test_radar_deduplication_and_settings(tmp_path):
+    from db import get_db_connection, init_database
+    from repository import get_radar_setting, is_lot_seen, mark_lot_seen, set_radar_setting
+
+    db_file = tmp_path / "test_radar.db"
+    init_database(db_file)
+    conn = get_db_connection(db_file)
+    try:
+        # Settings test
+        assert get_radar_setting(conn, "auto_radar_enabled") == "1"
+        set_radar_setting(conn, "auto_radar_enabled", "0")
+        assert get_radar_setting(conn, "auto_radar_enabled") == "0"
+
+        # Seen lots deduplication test
+        assert is_lot_seen(conn, "w123456", "2026-09-08") is False
+        mark_lot_seen(conn, "w123456", "2026-09-08", "Lô 10 cây Dupont", 5000, 3, "2026-09-08 22:00:00")
+        assert is_lot_seen(conn, "w123456", "2026-09-08") is True
+        # Ngày khác chưa seen
+        assert is_lot_seen(conn, "w123456", "2026-09-09") is False
+    finally:
+        conn.close()
+
+
+def test_format_radar_message():
+    from radar_service import format_radar_message
+
+    # Empty lots
+    empty_msg = format_radar_message([])
+    assert "Hiện tại chưa có lô bật lửa nào" in empty_msg
+
+    # Mock lot items
+    lots = [
+        {
+            "auction_id": "test001",
+            "title": "Lô 10 cây Zippo vintage đợt 1",
+            "price_jpy": 6500,
+            "bids": 8,
+            "remain_text": "còn 3h20m",
+            "url": "https://page.auctions.yahoo.co.jp/jp/auction/test001",
+        }
+    ]
+    msg = format_radar_message(lots)
+    assert "RADAR BẬT LỬA THEO LÔ" in msg
+    assert "Lô 10 cây Zippo" in msg
+    assert "6.500 yên" in msg
+    assert "Bids:</b> 8" in msg
+    assert "còn 3h20m" in msg
+
+
+
 
 
 

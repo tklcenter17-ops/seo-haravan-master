@@ -21,11 +21,14 @@ HELP_TEXT = """🔥 <b>TRỢ LÝ SĂN & DỌN QUẸT CHUYÊN SÂU (V4.1)</b>
 • <code>bệnh dupont xì gas</code> / <code>thay ron dupont</code>
 • <code>kẹt đá zippo</code> / <code>bay xăng zippo</code> / <code>ronson xì gas</code>
 
-<b>4. Quản lý dọn lô & phân bổ giá vốn:</b>
+<b>4. Radar Săn Lô Bật Lửa (Hôm Nay):</b>
+• <code>/radar</code> hoặc <code>/radar_lot</code>: Quét ngay các lô bật lửa có lượt bid kết thúc trong ngày hôm nay trên Yahoo Auctions.
+
+<b>5. Quản lý dọn lô & phân bổ giá vốn:</b>
 • <code>/donlo</code>: Xem danh sách các lô quẹt trong kho chờ dọn
 • <code>/donlo Q0006 6 8</code>: Cập nhật dọn sống 6 cây, rã xác 8 cây ➔ Tự động tính giá vốn thực/cây sống.
 
-<b>5. Nhập giá & Quản lý kho:</b>
+<b>6. Nhập giá & Quản lý kho:</b>
 • <code>/data [tên quẹt] [giá Y/VND/$]</code>: Nhập nhanh giá thắng
 • <code>/recent</code>: Xem 10 bản ghi gần nhất | <code>/view Q0001</code>: Xem chi tiết
 • <code>/cap Q0001 [giá]</code>: Đặt mốc trần bid cá nhân | <code>/undo</code>: Hoàn tác
@@ -40,8 +43,11 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔍 Tra giá", callback_data="menu:search_price"),
         ],
         [
-            InlineKeyboardButton("📋 Đã lưu gần đây", callback_data="menu:recent"),
+            InlineKeyboardButton("🎯 Radar Lô Hôm Nay", callback_data="radar_refresh"),
             InlineKeyboardButton("📊 Thống kê", callback_data="menu:stats"),
+        ],
+        [
+            InlineKeyboardButton("📋 Đã lưu gần đây", callback_data="menu:recent"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)

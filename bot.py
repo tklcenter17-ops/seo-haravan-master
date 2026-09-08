@@ -20,6 +20,7 @@ from db import get_db_connection, init_database
 from handlers.admin import cancel_command, export_command, stats_command
 from handlers.caps import cap_callback, cap_command
 from handlers.data_entry import data_command, draft_callback, price_draft_callback
+from handlers.radar_handlers import radar_callback_handler, radar_command
 from handlers.record_mgmt import (
     delete_command,
     donlo_command,
@@ -205,6 +206,60 @@ async def post_init(application: Application) -> None:
     finally:
         conn.close()
 
+    # Khởi động vòng lặp Radar tự động quét các lô bật lửa có bid kết thúc hôm nay
+    async def _radar_worker_loop():
+        await asyncio.sleep(10)  # Đợi bot ổn định 10s sau khi khởi động
+        from datetime import datetime, timezone, timedelta
+        from radar_service import format_radar_message, scan_today_lighter_lots
+        from repository import get_radar_setting, is_lot_seen, mark_lot_seen
+
+        while True:
+            try:
+                owner_id = cfg.owner_id
+                if owner_id:
+                    c = get_db_connection(cfg.db_path)
+                    try:
+                        is_enabled = (get_radar_setting(c, "auto_radar_enabled", default="1") == "1")
+                        if is_enabled:
+                            today_vn = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+                            lots = await scan_today_lighter_lots()
+                            new_lots = []
+                            for lot in lots:
+                                aid = lot.get("auction_id")
+                                if aid and not is_lot_seen(c, aid, today_vn):
+                                    new_lots.append(lot)
+                                    mark_lot_seen(
+                                        c,
+                                        aid,
+                                        today_vn,
+                                        lot.get("title", ""),
+                                        lot.get("price_jpy", 0),
+                                        lot.get("bids", 0),
+                                        lot.get("end_time", ""),
+                                    )
+
+                            if new_lots:
+                                logger.info(f"Radar tự động phát hiện {len(new_lots)} lô bật lửa mới kết thúc hôm nay.")
+                                msg_text = format_radar_message(new_lots)
+                                try:
+                                    await application.bot.send_message(
+                                        chat_id=owner_id,
+                                        text=f"🚨 <b>[TỰ ĐỘNG BÁO LÔ MỚI]</b>\n{msg_text}",
+                                        parse_mode="HTML",
+                                        disable_web_page_preview=True,
+                                    )
+                                except Exception as send_err:
+                                    logger.warning(f"Lỗi gửi tin nhắn radar: {send_err}")
+                    finally:
+                        c.close()
+            except Exception as loop_err:
+                logger.error(f"Lỗi trong vòng lặp Radar worker: {loop_err}", exc_info=True)
+
+            # Quét định kỳ mỗi 30 phút (1800 giây)
+            await asyncio.sleep(1800)
+
+    asyncio.create_task(_radar_worker_loop())
+
 
 def _start_health_check_server(port: int) -> None:
     """Máy chủ HTTP siêu nhẹ phục vụ Health-Check cho các nền tảng Cloud (Render, Koyeb, Railway)."""
@@ -274,8 +329,10 @@ def main() -> None:
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("cancel", cancel_command))
     app.add_handler(CommandHandler("donlo", donlo_command))
+    app.add_handler(CommandHandler(["radar", "radar_lot"], radar_command))
 
     # Đăng ký Callback Handlers
+    app.add_handler(CallbackQueryHandler(radar_callback_handler, pattern=r"^radar_"))
     app.add_handler(CallbackQueryHandler(draft_callback, pattern=r"^box_draft:"))
     app.add_handler(CallbackQueryHandler(price_draft_callback, pattern=r"^(price_draft:|price_cancel:)"))
     app.add_handler(CallbackQueryHandler(quick_add_callback, pattern=r"^quick_add:"))

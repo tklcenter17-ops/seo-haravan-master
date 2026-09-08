@@ -644,3 +644,58 @@ def update_lot_restoration(
         "note": rec.note,
     }
 
+
+def is_lot_seen(conn: sqlite3.Connection, auction_id: str, seen_date: str) -> bool:
+    """Kiểm tra xem lô này đã được thông báo trong ngày seen_date chưa."""
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT 1 FROM radar_seen_lots WHERE auction_id = ? AND seen_date = ? LIMIT 1;",
+        (auction_id, seen_date),
+    )
+    return cur.fetchone() is not None
+
+
+def mark_lot_seen(
+    conn: sqlite3.Connection,
+    auction_id: str,
+    seen_date: str,
+    title: str,
+    price_jpy: int,
+    bids: int,
+    end_time: str,
+) -> None:
+    """Đánh dấu lô đã thông báo trong ngày seen_date để chống spam lặp lại."""
+    now_iso = utc_now_iso()
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO radar_seen_lots (auction_id, seen_date, title, price_jpy, bids, end_time, sent_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+            """,
+            (auction_id, seen_date, title, price_jpy, bids, end_time, now_iso),
+        )
+
+
+def get_radar_setting(conn: sqlite3.Connection, key: str, default: str = "1") -> str:
+    """Lấy giá trị cài đặt radar."""
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM radar_settings WHERE key = ? LIMIT 1;", (key,))
+    row = cur.fetchone()
+    if not row:
+        return default
+    return str(row["value"])
+
+
+def set_radar_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Lưu giá trị cài đặt radar."""
+    now_iso = utc_now_iso()
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO radar_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
+            """,
+            (key, value, now_iso),
+        )
+
