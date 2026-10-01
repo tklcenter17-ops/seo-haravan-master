@@ -782,9 +782,197 @@
       border: none;
     }
 
+    /* Social Feedback Section Styles */
+    .blp-social-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .blp-social-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (min-width: 1024px) {
+      .blp-social-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    .blp-social-card {
+      background: #ffffff;
+      border: 1px solid var(--blp-border);
+      border-radius: var(--blp-radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--blp-shadow-sm);
+      transition: transform var(--blp-transition-fast), box-shadow var(--blp-transition-fast), border-color var(--blp-transition-fast);
+    }
+    .blp-social-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--blp-shadow-md);
+      border-color: var(--blp-primary);
+    }
+    .blp-social-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .blp-social-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #1877f2;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .blp-social-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+    .blp-social-source {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--blp-text);
+      line-height: 1.25;
+    }
+    .blp-social-badge {
+      display: inline-block;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: #1877f2;
+      background: #e7f3ff;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      margin-top: 0.125rem;
+    }
+    .blp-social-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--blp-text);
+      line-height: 1.4;
+      margin-bottom: 0.5rem;
+    }
+    .blp-social-desc {
+      font-size: 0.875rem;
+      color: var(--blp-muted);
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+      flex-grow: 1;
+    }
+    .blp-social-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--blp-border);
+    }
+    .blp-social-btn-view {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      background: var(--blp-primary);
+      color: #ffffff;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      padding: 0.5rem 0.875rem;
+      border-radius: var(--blp-radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: background var(--blp-transition-fast);
+      min-height: 44px;
+    }
+    .blp-social-btn-view:hover {
+      background: var(--blp-primary-hover);
+    }
+    .blp-social-btn-direct {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--blp-muted);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: color var(--blp-transition-fast);
+      padding: 0.5rem;
+      min-height: 44px;
+    }
+    .blp-social-btn-direct:hover {
+      color: var(--blp-primary);
+    }
+
+    /* Inline Social Viewer Area */
+    .blp-social-viewer {
+      margin-top: 2rem;
+      background: #f8fafc;
+      border: 1px solid var(--blp-border);
+      border-radius: var(--blp-radius-lg);
+      padding: 1.5rem;
+      box-shadow: var(--blp-shadow-md);
+      position: relative;
+    }
+    .blp-social-viewer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--blp-border);
+    }
+    .blp-social-viewer-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--blp-text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .blp-social-viewer-close {
+      background: #e2e8f0;
+      border: none;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--blp-text);
+      font-size: 1.25rem;
+      line-height: 1;
+      transition: background var(--blp-transition-fast), color var(--blp-transition-fast);
+    }
+    .blp-social-viewer-close:hover {
+      background: #cbd5e1;
+      color: #dc2626;
+    }
+    .blp-social-viewer-content {
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      border-radius: var(--blp-radius-md);
+      overflow: hidden;
+      border: 1px solid var(--blp-border);
+    }
+    .blp-social-viewer-content iframe {
+      width: 100%;
+      min-height: 500px;
+      border: none;
+    }
+
     /* Print media */
     @media print {
-      header, footer, #bottomCtaBar, #confirmModal, #brotherVideoModal {
+      header, footer, #bottomCtaBar, #confirmModal, #brotherVideoModal, #socialViewerArea {
         display: none !important;
       }
     }
@@ -1594,6 +1782,124 @@
             </div>
           </article>
 
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 2.5: PHẢN HỒI THỰC TẾ TỪ CỘNG ĐỒNG & KHÁCH HÀNG (SOCIAL FEEDBACK) -->
+    <section id="chia-se-trai-nghiem" class="blp-anchor py-14 sm:py-20 bg-white border-b border-brand-border" data-aos="fade-up" data-aos-duration="700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+
+        <!-- Tiêu đề Section -->
+        <div class="text-center max-w-2xl mx-auto space-y-2" data-aos="fade-up" data-aos-duration="700">
+          <span class="text-xs font-bold tracking-widest uppercase text-brand-primary">GÓC NHÌN THỰC TẾ</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-brand-text">
+            Khách Hàng &amp; Đối Tác Nói Gì Về Brother?
+          </h2>
+          <p class="text-sm text-brand-muted">
+            Tổng hợp bài viết, đánh giá và chia sẻ trải nghiệm thực tế từ Fanpage chính thức Brother Vietnam và cộng đồng người dùng.
+          </p>
+        </div>
+
+        <!-- 3 Thẻ Social Card -->
+        <div class="blp-social-grid">
+
+          <!-- CARD 1 -->
+          <article class="blp-social-card" data-aos="fade-up" data-aos-duration="700" data-aos-delay="100">
+            <div>
+              <div class="blp-social-header">
+                <div class="blp-social-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </div>
+                <div>
+                  <div class="blp-social-source">Brother Vietnam</div>
+                  <span class="blp-social-badge">Facebook Official</span>
+                </div>
+              </div>
+              <h3 class="blp-social-title">Trải nghiệm vận hành dòng máy in Laser &amp; LED Màu Brother</h3>
+              <p class="blp-social-desc">Khám phá sức mạnh vận hành bền bỉ và tốc độ vượt trội trong môi trường văn phòng khối lượng in ấn lớn từ khách hàng doanh nghiệp.</p>
+            </div>
+            <div class="blp-social-actions">
+              <button type="button" class="blp-social-btn-view" onclick="openSocialViewer('https://www.facebook.com/brothervn/posts/pfbid02TMau6EHd8iJT4tUMH53ep7BJ64NuzTgu2vT71bHTP5cLvt5iqSzmdjPzL5RKnSd1l', 'Trải nghiệm vận hành dòng máy in Laser &amp; LED Màu Brother', this)" aria-label="Xem bài viết: Trải nghiệm vận hành dòng máy in Laser &amp; LED Màu Brother">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>Xem bài viết</span>
+              </button>
+              <a href="https://www.facebook.com/brothervn/posts/pfbid02TMau6EHd8iJT4tUMH53ep7BJ64NuzTgu2vT71bHTP5cLvt5iqSzmdjPzL5RKnSd1l" target="_blank" rel="noopener noreferrer" class="blp-social-btn-direct" title="Mở trực tiếp bài viết trên Facebook">
+                <span>Mở Facebook</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            </div>
+          </article>
+
+          <!-- CARD 2 -->
+          <article class="blp-social-card" data-aos="fade-up" data-aos-duration="700" data-aos-delay="200">
+            <div>
+              <div class="blp-social-header">
+                <div class="blp-social-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </div>
+                <div>
+                  <div class="blp-social-source">Brother Vietnam</div>
+                  <span class="blp-social-badge">Facebook Official</span>
+                </div>
+              </div>
+              <h3 class="blp-social-title">Đánh giá chất lượng bản in màu và độ bền mực in chính hãng</h3>
+              <p class="blp-social-desc">Khảo sát thực tế độ sắc nét của biểu đồ, catalogue và khả năng lưu trữ màu lâu dài theo chuẩn quốc tế cùng hộp mực Brother chính hãng.</p>
+            </div>
+            <div class="blp-social-actions">
+              <button type="button" class="blp-social-btn-view" onclick="openSocialViewer('https://www.facebook.com/brothervn/posts/pfbid0b7y9FFiMAC5Pi33EBhJLrVNGRZZ9A1RkG1xMVBrpUpunSnSsrLW5CM81CFdP1YWFl', 'Đánh giá chất lượng bản in màu và độ bền mực in chính hãng', this)" aria-label="Xem bài viết: Đánh giá chất lượng bản in màu và độ bền mực in chính hãng">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>Xem bài viết</span>
+              </button>
+              <a href="https://www.facebook.com/brothervn/posts/pfbid0b7y9FFiMAC5Pi33EBhJLrVNGRZZ9A1RkG1xMVBrpUpunSnSsrLW5CM81CFdP1YWFl" target="_blank" rel="noopener noreferrer" class="blp-social-btn-direct" title="Mở trực tiếp bài viết trên Facebook">
+                <span>Mở Facebook</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            </div>
+          </article>
+
+          <!-- CARD 3 -->
+          <article class="blp-social-card" data-aos="fade-up" data-aos-duration="700" data-aos-delay="300">
+            <div>
+              <div class="blp-social-header">
+                <div class="blp-social-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </div>
+                <div>
+                  <div class="blp-social-source">Brother Vietnam</div>
+                  <span class="blp-social-badge">Facebook Official</span>
+                </div>
+              </div>
+              <h3 class="blp-social-title">Giải pháp in ấn đa năng cho doanh nghiệp và văn phòng hiện đại</h3>
+              <p class="blp-social-desc">Tối ưu quy trình in ấn không dây, bảo mật tài liệu doanh nghiệp và quản trị thiết bị từ xa hiệu quả với hệ sinh thái Brother.</p>
+            </div>
+            <div class="blp-social-actions">
+              <button type="button" class="blp-social-btn-view" onclick="openSocialViewer('https://www.facebook.com/brothervn/posts/pfbid01Uvt1MjXzoxo52s7yXz73eL6dGNAbX32tQTrutyjdLXJKhKUtiCctsNYUgRS9DDFl', 'Giải pháp in ấn đa năng cho doanh nghiệp và văn phòng hiện đại', this)" aria-label="Xem bài viết: Giải pháp in ấn đa năng cho doanh nghiệp và văn phòng hiện đại">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>Xem bài viết</span>
+              </button>
+              <a href="https://www.facebook.com/brothervn/posts/pfbid01Uvt1MjXzoxo52s7yXz73eL6dGNAbX32tQTrutyjdLXJKhKUtiCctsNYUgRS9DDFl" target="_blank" rel="noopener noreferrer" class="blp-social-btn-direct" title="Mở trực tiếp bài viết trên Facebook">
+                <span>Mở Facebook</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            </div>
+          </article>
+
+        </div>
+
+        <!-- Inline Viewer Area (Mặc định ẩn, bật khi bấm Xem bài viết) -->
+        <div id="socialViewerArea" class="blp-social-viewer hidden" tabindex="-1" role="region" aria-label="Khu vực xem bài viết chi tiết">
+          <div class="blp-social-viewer-head">
+            <div class="blp-social-viewer-title">
+              <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              <span id="socialViewerTitle">Chi Tiết Bài Viết Chia Sẻ</span>
+            </div>
+            <button type="button" class="blp-social-viewer-close" onclick="closeSocialViewer()" aria-label="Đóng bài viết chia sẻ">&times;</button>
+          </div>
+          <div id="socialViewerContainer" class="blp-social-viewer-content">
+            <!-- Nội dung iframe hoặc fallback sẽ được render động ở đây -->
+          </div>
         </div>
 
       </div>
@@ -2459,7 +2765,72 @@
       }
     });
 
-    // Phím Escape CHỈ đóng Modal nếu Modal đang mở
+    // 7.2. XỬ LÝ SOCIAL VIEWER INLINE (CHO SECTION #CHIA-SE-TRAI-NGHIEM)
+    let activeSocialTriggerBtn = null;
+
+    function openSocialViewer(postUrl, postTitle, triggerBtn) {
+      activeSocialTriggerBtn = triggerBtn || null;
+      const viewer = document.getElementById('socialViewerArea');
+      const titleEl = document.getElementById('socialViewerTitle');
+      const container = document.getElementById('socialViewerContainer');
+      if (!viewer || !container) return;
+
+      if (titleEl && postTitle) {
+        titleEl.textContent = postTitle;
+      }
+
+      // Render nội dung viewer với embed iframe và fallback trực tiếp sang Facebook
+      const embedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(postUrl)}&width=500&show_text=true&appId`;
+      container.innerHTML = `
+        <div class="w-full flex flex-col items-center p-4">
+          <iframe 
+            src="${embedUrl}" 
+            title="${postTitle ? postTitle.replace(/"/g, '&quot;') : 'Bài viết Facebook'}" 
+            style="border:none;overflow:hidden;max-width:550px;width:100%;min-height:520px;" 
+            scrolling="no" 
+            frameborder="0" 
+            allowfullscreen="true" 
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share">
+          </iframe>
+          <div class="mt-4 text-center text-xs text-brand-muted">
+            <span>Không hiển thị được bài viết? </span>
+            <a href="${postUrl}" target="_blank" rel="noopener noreferrer" class="text-brand-primary font-semibold underline hover:text-brand-primary-hover">
+              Bấm vào đây để mở trực tiếp trên Facebook &rarr;
+            </a>
+          </div>
+        </div>
+      `;
+
+      viewer.classList.remove('hidden');
+
+      // Cuộn êm đến vị trí viewer (có offset trừ hao header sticky 80px)
+      const headerOffset = 80;
+      const elementPosition = viewer.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+
+      viewer.focus({ preventScroll: true });
+    }
+
+    function closeSocialViewer() {
+      const viewer = document.getElementById('socialViewerArea');
+      const container = document.getElementById('socialViewerContainer');
+      if (container) {
+        container.innerHTML = '';
+      }
+      if (viewer) {
+        viewer.classList.add('hidden');
+      }
+      if (activeSocialTriggerBtn && typeof activeSocialTriggerBtn.focus === 'function') {
+        activeSocialTriggerBtn.focus();
+      }
+    }
+
+    // Phím Escape CHỈ đóng Modal / Viewer nếu đang mở
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const modal = document.getElementById('confirmModal');
@@ -2469,6 +2840,10 @@
         const videoModal = document.getElementById('brotherVideoModal');
         if (videoModal && videoModal.open) {
           closeBrotherVideoModal();
+        }
+        const socialViewer = document.getElementById('socialViewerArea');
+        if (socialViewer && !socialViewer.classList.contains('hidden')) {
+          closeSocialViewer();
         }
       }
     });
