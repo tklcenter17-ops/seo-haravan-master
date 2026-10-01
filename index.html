@@ -449,10 +449,24 @@
     .focus\:ring-1:focus { box-shadow: 0 0 0 1px var(--blp-primary) !important; }
     details[open] .group-open\:rotate-180 { transform: rotate(180deg); }
 
-    /* MODAL BACKDROP */
+    /* MODAL BASE & BACKDROP */
+    #confirmModal[open] {
+      display: block !important;
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+      width: min(92vw, 440px) !important;
+      max-width: 440px !important;
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      z-index: 99999 !important;
+    }
     dialog::backdrop {
       background-color: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
     }
 
     /* SELECTION */
@@ -707,71 +721,117 @@
       color: var(--blp-primary-hover);
       text-decoration: underline;
     }
-    /* Video Popup Dialog */
+    /* Video Popup Dialog - 100% Mobile Centered & Responsive */
     #brotherVideoModal {
       padding: 0;
       border: none;
-      border-radius: 16px;
       background: transparent;
-      max-width: 900px;
-      width: 94vw;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+      margin: 0;
+      max-width: none;
+      width: auto;
+      box-shadow: none;
       overflow: visible;
     }
+    #brotherVideoModal[open] {
+      display: flex !important;
+      flex-direction: column;
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      width: 92vw !important;
+      max-width: 840px !important;
+      max-height: 90vh !important;
+      background: transparent !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
+      overflow: hidden !important;
+      border-radius: 16px !important;
+      z-index: 99999 !important;
+    }
     #brotherVideoModal::backdrop {
-      background: rgba(8, 24, 39, 0.85);
-      backdrop-filter: blur(4px);
+      position: fixed !important;
+      inset: 0 !important;
+      background: rgba(8, 24, 39, 0.88) !important;
+      backdrop-filter: blur(6px) !important;
+      -webkit-backdrop-filter: blur(6px) !important;
+      z-index: 99998 !important;
     }
     .blp-video-modal-container {
       background: #0f172a;
       border-radius: 16px;
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.18);
       display: flex;
       flex-direction: column;
+      width: 100%;
     }
     .blp-video-modal-header {
-      padding: 12px 18px;
+      padding: 10px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
       background: #081827;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
       color: #ffffff;
+      flex-shrink: 0;
+    }
+    @media (min-width: 640px) {
+      .blp-video-modal-header {
+        padding: 12px 18px;
+        gap: 16px;
+      }
     }
     .blp-video-modal-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       color: #f8fafc;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 85%;
+      flex: 1;
+      min-width: 0;
       margin: 0;
     }
+    @media (min-width: 640px) {
+      .blp-video-modal-title {
+        font-size: 14px;
+      }
+    }
     .blp-video-modal-close {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.12);
       border: none;
       color: #ffffff;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      min-height: 36px;
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1;
-      transition: background 0.15s ease;
+      transition: background 0.15s ease, transform 0.1s ease;
+      flex-shrink: 0;
+      touch-action: manipulation;
     }
     .blp-video-modal-close:hover {
-      background: rgba(220, 38, 38, 0.85);
+      background: rgba(220, 38, 38, 0.9);
+    }
+    .blp-video-modal-close:active {
+      transform: scale(0.95);
     }
     .blp-video-modal-player {
       position: relative;
       width: 100%;
-      padding-top: 56.25%; /* 16:9 */
+      padding-top: 56.25%; /* 16:9 Aspect Ratio */
       background: #000000;
+      flex-shrink: 0;
     }
     .blp-video-modal-player iframe {
       position: absolute;
@@ -2334,8 +2394,8 @@
     </div>
   </dialog>
 
-  <!-- MODAL XEM VIDEO YOUTUBE BROTHER -->
-  <dialog id="brotherVideoModal" class="p-0 rounded-2xl backdrop:bg-black/80 shadow-2xl max-w-4xl w-[94vw] border border-slate-700 bg-slate-900 text-white" aria-labelledby="videoModalTitle">
+  <!-- MODAL XEM VIDEO YOUTUBE BROTHER (100% RESPONSIVE MOBILE & DESKTOP) -->
+  <dialog id="brotherVideoModal" class="p-0 border-0 bg-transparent text-white" aria-labelledby="videoModalTitle">
     <div class="blp-video-modal-container">
       <div class="blp-video-modal-header">
         <h3 id="videoModalTitle" class="blp-video-modal-title">Xem Video Brother</h3>
@@ -2696,6 +2756,7 @@
     // 7. MODAL XỬ LÝ CHUẨN (KHÔNG RESET FORM KHI ĐÓNG!)
     function openConfirmationModal() {
       const modal = document.getElementById('confirmModal');
+      document.body.style.overflow = 'hidden';
       if (modal && typeof modal.showModal === 'function') {
         modal.showModal();
       } else if (modal) {
@@ -2705,6 +2766,7 @@
 
     function closeConfirmationModal() {
       const modal = document.getElementById('confirmModal');
+      document.body.style.overflow = '';
       if (modal && typeof modal.close === 'function') {
         modal.close();
       } else if (modal) {
@@ -2733,6 +2795,9 @@
         allowfullscreen>
       </iframe>`;
 
+      // Khóa cuộn trang nền khi mở modal trên mobile & desktop
+      document.body.style.overflow = 'hidden';
+
       if (typeof modal.showModal === 'function') {
         modal.showModal();
       } else {
@@ -2746,6 +2811,10 @@
       if (container) {
         container.innerHTML = '';
       }
+
+      // Mở lại cuộn trang
+      document.body.style.overflow = '';
+
       if (modal) {
         if (typeof modal.close === 'function') {
           modal.close();
@@ -2760,7 +2829,11 @@
 
     document.getElementById('brotherVideoModal')?.addEventListener('click', (e) => {
       const modal = document.getElementById('brotherVideoModal');
-      if (e.target === modal) {
+      if (!modal) return;
+      const contentBox = modal.querySelector('.blp-video-modal-container');
+      if (contentBox && !contentBox.contains(e.target)) {
+        closeBrotherVideoModal();
+      } else if (e.target === modal) {
         closeBrotherVideoModal();
       }
     });
