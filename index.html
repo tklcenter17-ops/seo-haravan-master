@@ -606,7 +606,7 @@
       }
     }
 
-    /* Module 3 Video YouTube Brother */
+    /* Module 3 Video TikTok Brother */
     .blp-video-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -640,10 +640,16 @@
     .blp-video-thumb-wrap {
       position: relative;
       width: 100%;
-      padding-top: 56.25%; /* 16:9 Aspect Ratio */
+      padding-top: 115%; /* Portrait Aspect Ratio for TikTok */
       background: #081827;
       cursor: pointer;
       overflow: hidden;
+    }
+    @supports (aspect-ratio: 4 / 5) {
+      .blp-video-thumb-wrap {
+        padding-top: 0;
+        aspect-ratio: 4 / 5;
+      }
     }
     .blp-video-thumb-img {
       position: absolute;
@@ -652,7 +658,11 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      object-position: center;
       transition: transform 0.3s ease;
+    }
+    .blp-video-thumb-img.blp-video-thumb-pos-bottom {
+      object-position: center bottom;
     }
     .blp-video-card:hover .blp-video-thumb-img {
       transform: scale(1.03);
@@ -683,13 +693,16 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
-      background: rgba(8, 24, 39, 0.85);
+      background: rgba(8, 24, 39, 0.88);
       color: #35c8ed;
       font-size: 11px;
       font-weight: 700;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
       backdrop-filter: blur(4px);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
     }
     .blp-video-body {
       padding: 20px;
@@ -709,7 +722,7 @@
     .blp-video-link {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       font-size: 13px;
       font-weight: 600;
       color: var(--blp-primary);
@@ -721,7 +734,7 @@
       color: var(--blp-primary-hover);
       text-decoration: underline;
     }
-    /* Video Popup Dialog - 100% Mobile Centered & Responsive */
+    /* Video Popup Dialog - 100% Mobile Centered & Responsive TikTok Player */
     #brotherVideoModal {
       padding: 0;
       border: none;
@@ -742,9 +755,10 @@
       margin: 0 !important;
       padding: 0 !important;
       border: none !important;
-      width: 92vw !important;
-      max-width: 840px !important;
-      max-height: 90vh !important;
+      width: min(92vw, 420px) !important;
+      max-width: 420px !important;
+      height: min(740px, 88vh) !important;
+      max-height: 88vh !important;
       background: transparent !important;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
       overflow: hidden !important;
@@ -767,6 +781,7 @@
       display: flex;
       flex-direction: column;
       width: 100%;
+      height: 100%;
     }
     .blp-video-modal-header {
       padding: 10px 14px;
@@ -829,9 +844,10 @@
     .blp-video-modal-player {
       position: relative;
       width: 100%;
-      padding-top: 56.25%; /* 16:9 Aspect Ratio */
+      flex: 1;
+      min-height: 0;
       background: #000000;
-      flex-shrink: 0;
+      overflow: hidden;
     }
     .blp-video-modal-player iframe {
       position: absolute;
@@ -1759,17 +1775,17 @@
       </div>
     </section>
 
-    <!-- SECTION VIDEO: VIDEO TRẢI NGHIỆM & HƯỚNG DẪN BROTHER -->
+    <!-- SECTION VIDEO: VIDEO TRẢI NGHIỆM TIKTOK BROTHER -->
     <section id="video-trai-nghiem" class="blp-anchor py-14 sm:py-20 bg-brand-soft border-b border-brand-border" data-aos="fade-up" data-aos-duration="700">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         
         <div class="text-center max-w-2xl mx-auto space-y-2" data-aos="fade-up" data-aos-duration="700">
-          <span class="text-xs font-bold tracking-widest uppercase text-brand-primary">VIDEO TRẢI NGHIỆM THỰC TẾ</span>
+          <span class="text-xs font-bold tracking-widest uppercase text-brand-primary">VIDEO TRẢI NGHIỆM TIKTOK</span>
           <h2 class="text-2xl sm:text-3xl font-extrabold text-brand-text">
             Video Trải Nghiệm & Hướng Dẫn Dòng Máy Brother
           </h2>
           <p class="text-sm text-brand-muted">
-            Khám phá chi tiết khả năng vận hành thực tế, chất lượng bản in sắc nét và hướng dẫn cài đặt sử dụng nhanh.
+            Khám phá chi tiết khả năng vận hành thực tế, chất lượng bản in sắc nét và hướng dẫn sử dụng nhanh trên TikTok Brother Vietnam.
           </p>
         </div>
 
@@ -1778,20 +1794,23 @@
           
           <!-- VIDEO 1 -->
           <article class="blp-video-card" data-aos="fade-up" data-aos-duration="700" data-aos-delay="100">
-            <div class="blp-video-thumb-wrap" onclick="openBrotherVideoModal('eOrpTV3pSPE', 'Video trải nghiệm thực tế dòng máy in Laser & LED Màu Brother', this)" role="button" tabindex="0" aria-label="Phát Video 1: Trải nghiệm thực tế máy in Brother" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openBrotherVideoModal('eOrpTV3pSPE', 'Video trải nghiệm thực tế dòng máy in Laser & LED Màu Brother', this); }">
-              <img src="https://img.youtube.com/vi/eOrpTV3pSPE/hqdefault.jpg" alt="Video trải nghiệm thực tế máy in Laser & LED Màu Brother" class="blp-video-thumb-img" loading="lazy" />
+            <div class="blp-video-thumb-wrap" onclick="openBrotherVideoModal('7615261940247547157', 'Trải nghiệm dòng máy in laser màu Brother & công nghệ LED tiên tiến', this)" role="button" tabindex="0" aria-label="Phát Video 1: Trải nghiệm dòng máy in laser màu Brother & công nghệ LED" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openBrotherVideoModal('7615261940247547157', 'Trải nghiệm dòng máy in laser màu Brother & công nghệ LED tiên tiến', this); }">
+              <img src="assets/tiktok-thumb-1.jpg" onerror="this.onerror=null;this.src='https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0037/owVAZBMa1vXEQ2IaY87uVBAgiiwhEYCAHIGuW~tplv-tiktokx-origin.image?dr=14575&x-expires=1791090000&x-signature=YCvkLuaMog%2BuNnMnQzrhzBrFANY%3D&t=4d5b0474&ps=13740610&shp=81f88b70&shcp=43f4a2f9&idc=my2';" alt="Trải nghiệm dòng máy in laser màu Brother & công nghệ LED tiên tiến" class="blp-video-thumb-img" loading="lazy" />
               <div class="blp-video-play-btn" aria-hidden="true">
                 <svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </div>
-              <span class="blp-video-badge">Trải Nghiệm</span>
+              <span class="blp-video-badge">Trải Nghiệm LED Màu</span>
             </div>
             <div class="blp-video-body">
-              <h3 class="blp-video-title">Video trải nghiệm thực tế dòng máy in Laser & LED Màu Brother</h3>
-              <a href="https://www.youtube.com/watch?v=eOrpTV3pSPE" target="_blank" rel="noopener noreferrer" class="blp-video-link">
-                <span>Xem trên YouTube</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h3 class="blp-video-title">Trải nghiệm dòng máy in laser màu Brother & công nghệ LED tiên tiến</h3>
+              <a href="https://www.tiktok.com/@brothervietnam/video/7615261940247547157?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" class="blp-video-link">
+                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                </svg>
+                <span>Xem trên TikTok</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                 </svg>
               </a>
@@ -1800,20 +1819,23 @@
 
           <!-- VIDEO 2 -->
           <article class="blp-video-card" data-aos="fade-up" data-aos-duration="700" data-aos-delay="200">
-            <div class="blp-video-thumb-wrap" onclick="openBrotherVideoModal('-pC7kvdlk5M', 'Hướng dẫn cài đặt driver & sử dụng máy in Brother HL-L8360CDW', this)" role="button" tabindex="0" aria-label="Phát Video 2: Hướng dẫn cài đặt & sử dụng Brother HL-L8360CDW" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openBrotherVideoModal('-pC7kvdlk5M', 'Hướng dẫn cài đặt driver & sử dụng máy in Brother HL-L8360CDW', this); }">
-              <img src="https://img.youtube.com/vi/-pC7kvdlk5M/hqdefault.jpg" alt="Hướng dẫn cài đặt driver & sử dụng máy in Brother HL-L8360CDW" class="blp-video-thumb-img" loading="lazy" />
+            <div class="blp-video-thumb-wrap" onclick="openBrotherVideoModal('7594301822676798740', 'Giữ trọn mạch sáng tạo – Tái tạo màu sắc chuẩn xác cùng Brother', this)" role="button" tabindex="0" aria-label="Phát Video 2: Giữ trọn mạch sáng tạo cùng Brother" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openBrotherVideoModal('7594301822676798740', 'Giữ trọn mạch sáng tạo – Tái tạo màu sắc chuẩn xác cùng Brother', this); }">
+              <img src="assets/tiktok-thumb-2.jpg" onerror="this.onerror=null;this.src='https://p19-common-sign.tiktokcdn.com/tos-alisg-p-0037/o4UK3NoGSCY221sLIpFMUAIeIDrkeysAejIVZL~tplv-tiktokx-origin.image?dr=14575&x-expires=1791090000&x-signature=FYTbu9LYpMQW4pnJHt3owIDI1jc%3D&t=4d5b0474&ps=13740610&shp=81f88b70&shcp=43f4a2f9&idc=my2';" alt="Giữ trọn mạch sáng tạo – Tái tạo màu sắc chuẩn xác cùng Brother" class="blp-video-thumb-img" loading="lazy" />
               <div class="blp-video-play-btn" aria-hidden="true">
                 <svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </div>
-              <span class="blp-video-badge">Cài Đặt & Sử Dụng</span>
+              <span class="blp-video-badge">Sáng Tạo & Chuẩn Màu</span>
             </div>
             <div class="blp-video-body">
-              <h3 class="blp-video-title">Hướng dẫn cài đặt driver & sử dụng máy in Brother HL-L8360CDW</h3>
-              <a href="https://www.youtube.com/watch?v=-pC7kvdlk5M" target="_blank" rel="noopener noreferrer" class="blp-video-link">
-                <span>Xem trên YouTube</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h3 class="blp-video-title">Giữ trọn mạch sáng tạo – Tái tạo màu sắc chuẩn xác cùng Brother</h3>
+              <a href="https://www.tiktok.com/@brothervietnam/video/7594301822676798740?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" class="blp-video-link">
+                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                </svg>
+                <span>Xem trên TikTok</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                 </svg>
               </a>
@@ -1822,20 +1844,23 @@
 
           <!-- VIDEO 3 -->
           <article class="blp-video-card" data-aos="fade-up" data-aos-duration="700" data-aos-delay="300">
-            <div class="blp-video-thumb-wrap" onclick="openBrotherVideoModal('FvwQEDnetBk', 'Trải nghiệm tính năng in ấn & kết nối không dây Brother', this)" role="button" tabindex="0" aria-label="Phát Video 3: Trải nghiệm tính năng in ấn & kết nối không dây" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openBrotherVideoModal('FvwQEDnetBk', 'Trải nghiệm tính năng in ấn & kết nối không dây Brother', this); }">
-              <img src="https://img.youtube.com/vi/FvwQEDnetBk/hqdefault.jpg" alt="Trải nghiệm tính năng in ấn & kết nối không dây Brother" class="blp-video-thumb-img" loading="lazy" />
+            <div class="blp-video-thumb-wrap" onclick="openBrotherVideoModal('7592082612542328084', 'In màu sắc nét – Chuẩn mực in ấn chuyên nghiệp cho doanh nghiệp', this)" role="button" tabindex="0" aria-label="Phát Video 3: In màu sắc nét cho doanh nghiệp" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); openBrotherVideoModal('7592082612542328084', 'In màu sắc nét – Chuẩn mực in ấn chuyên nghiệp cho doanh nghiệp', this); }">
+              <img src="assets/tiktok-thumb-3.jpg" onerror="this.onerror=null;this.src='https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0037/owzcBLfDUQvoRQpENf36qXvH4BvAUE7GFa5TQg~tplv-tiktokx-origin.image?dr=14575&x-expires=1791090000&x-signature=ou57D%2BSHrUoqa%2Bgq%2BUr%2BeqOAX4I%3D&t=4d5b0474&ps=13740610&shp=81f88b70&shcp=43f4a2f9&idc=my2';" alt="In màu sắc nét – Chuẩn mực in ấn chuyên nghiệp cho doanh nghiệp" class="blp-video-thumb-img blp-video-thumb-pos-bottom" loading="lazy" />
               <div class="blp-video-play-btn" aria-hidden="true">
                 <svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </div>
-              <span class="blp-video-badge">Tính Năng In Ấn</span>
+              <span class="blp-video-badge">Chuẩn Doanh Nghiệp</span>
             </div>
             <div class="blp-video-body">
-              <h3 class="blp-video-title">Trải nghiệm tính năng in ấn & kết nối không dây Brother</h3>
-              <a href="https://www.youtube.com/watch?v=FvwQEDnetBk" target="_blank" rel="noopener noreferrer" class="blp-video-link">
-                <span>Xem trên YouTube</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h3 class="blp-video-title">In màu sắc nét – Chuẩn mực in ấn chuyên nghiệp cho doanh nghiệp</h3>
+              <a href="https://www.tiktok.com/@brothervietnam/video/7592082612542328084?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" class="blp-video-link">
+                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                </svg>
+                <span>Xem trên TikTok</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                 </svg>
               </a>
@@ -2394,11 +2419,11 @@
     </div>
   </dialog>
 
-  <!-- MODAL XEM VIDEO YOUTUBE BROTHER (100% RESPONSIVE MOBILE & DESKTOP) -->
+  <!-- MODAL XEM VIDEO TIKTOK BROTHER (100% RESPONSIVE MOBILE & DESKTOP) -->
   <dialog id="brotherVideoModal" class="p-0 border-0 bg-transparent text-white" aria-labelledby="videoModalTitle">
     <div class="blp-video-modal-container">
       <div class="blp-video-modal-header">
-        <h3 id="videoModalTitle" class="blp-video-modal-title">Xem Video Brother</h3>
+        <h3 id="videoModalTitle" class="blp-video-modal-title">Xem Video TikTok Brother</h3>
         <button type="button" id="closeVideoModalBtn" onclick="closeBrotherVideoModal()" class="blp-video-modal-close" aria-label="Đóng video">&times;</button>
       </div>
       <div class="blp-video-modal-player" id="videoIframeContainer">
@@ -2774,7 +2799,7 @@
       }
     }
 
-    // 7.1. LOGIC XEM VIDEO YOUTUBE BROTHER POPUP
+    // 7.1. LOGIC XEM VIDEO TIKTOK BROTHER POPUP
     let activeVideoTriggerBtn = null;
 
     function openBrotherVideoModal(videoId, title, triggerBtn) {
@@ -2789,8 +2814,9 @@
       }
 
       container.innerHTML = `<iframe 
-        src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0" 
-        title="${title ? title.replace(/"/g, '&quot;') : 'Video YouTube Brother'}" 
+        src="https://www.tiktok.com/embed/${encodeURIComponent(videoId)}" 
+        title="${title ? title.replace(/"/g, '&quot;') : 'Video TikTok Brother'}" 
+        style="width: 100%; height: 100%; border: none;"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
         allowfullscreen>
       </iframe>`;
