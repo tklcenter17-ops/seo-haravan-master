@@ -219,30 +219,39 @@
   .desktop-nav {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: 0.25rem;
+    flex-wrap: nowrap;
   }
 }
 
 .nav-link {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
+  padding: 0.5rem 0.65rem;
   color: var(--hamaco-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   border-radius: var(--radius-sm);
+  white-space: nowrap !important;
   transition: color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .nav-link:hover {
-  color: var(--hamaco-navy);
+  color: var(--hamaco-orange);
   background-color: var(--hamaco-warm-gray);
 }
 
 .nav-link.is-active {
-  color: var(--hamaco-navy);
+  color: var(--hamaco-orange);
   font-weight: var(--font-weight-semibold);
   background-color: var(--hamaco-orange-light);
+}
+
+@media (min-width: 1024px) and (max-width: 1240px) {
+  .nav-link {
+    padding: 0.4rem 0.45rem;
+    font-size: 0.8125rem;
+  }
 }
 
 /* Nav Dropdown */
@@ -397,11 +406,26 @@ body.drawer-open .mobile-drawer {
    FOOTER COMPONENT
    ========================================================================== */
 .site-footer {
-  background-color: var(--hamaco-deep-navy);
-  color: var(--hamaco-white);
+  background-color: #070D1E !important;
+  background: #070D1E !important;
+  color: #FFFFFF !important;
   padding-top: var(--space-16);
   padding-bottom: var(--space-8);
   border-top: 4px solid var(--hamaco-orange);
+  position: relative;
+  z-index: 10;
+}
+
+.site-footer p {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.site-footer .site-logo .logo-title {
+  color: #FFFFFF !important;
+}
+
+.site-footer .site-logo .logo-sub {
+  color: rgba(255, 255, 255, 0.65) !important;
 }
 
 .footer-grid {
