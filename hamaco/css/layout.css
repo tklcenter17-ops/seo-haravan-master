@@ -414,19 +414,25 @@ body.drawer-open .mobile-drawer {
 @media (min-width: 640px) {
   .footer-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-8);
   }
 }
 
 @media (min-width: 1024px) {
   .footer-grid {
-    grid-template-columns: 2fr 1fr 1fr 1.5fr;
+    grid-template-columns: 1.4fr 1.15fr 1.25fr 1.4fr;
+    gap: var(--space-8);
   }
 }
 
 .footer-col h4 {
   color: var(--hamaco-white);
-  font-size: var(--font-size-md);
-  margin-bottom: var(--space-4);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-5);
   position: relative;
   padding-bottom: var(--space-2);
 }
@@ -436,41 +442,71 @@ body.drawer-open .mobile-drawer {
   position: absolute;
   bottom: 0;
   left: 0;
-  width: 24px;
+  width: 28px;
   height: 2px;
-  background-color: var(--hamaco-orange);
+  background: var(--gradient-accent);
 }
 
 .footer-links {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 0;
 }
 
 .footer-link {
-  color: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.78);
   font-size: var(--font-size-sm);
-  transition: color var(--transition-fast), transform var(--transition-fast);
+  padding: 0.45rem 0;
+  line-height: 1.4;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all var(--transition-fast);
+}
+
+.footer-link::before {
+  content: '›';
+  color: var(--hamaco-orange);
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.footer-link:last-child {
+  border-bottom: none;
 }
 
 .footer-link:hover {
-  color: var(--hamaco-orange);
-  transform: translateX(4px);
+  color: var(--hamaco-orange-bright);
+  padding-left: 4px;
+}
+
+.footer-link:hover::before {
+  transform: translateX(3px);
+  color: var(--hamaco-white);
 }
 
 .footer-contact-item {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  padding: 0.35rem 0;
   font-size: var(--font-size-sm);
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.footer-contact-item:last-of-type {
+  border-bottom: none;
 }
 
 .footer-contact-item svg {
   flex-shrink: 0;
   color: var(--hamaco-orange);
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .footer-bottom {
