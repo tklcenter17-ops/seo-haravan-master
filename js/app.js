@@ -12,6 +12,7 @@ import { initForms } from './modules/form.js';
 import { initTimeline } from './modules/timeline.js';
 import { initIRWidget } from './modules/ir-widget.js';
 import { initMap } from './modules/map.js';
+import { initAnimations } from './modules/animations.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
@@ -24,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTimeline();
     initIRWidget();
     initMap();
+    initAnimations();
   } catch (err) {
     console.error('HAMACO UI initialization error:', err);
   }

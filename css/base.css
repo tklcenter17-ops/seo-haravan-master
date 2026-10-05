@@ -1,31 +1,57 @@
 /* ==========================================================================
-   HAMACO BASE — Typography, links, selections & focus states
+   HAMACO BASE — Typography, Links, Selections, Focus, Grids
    ========================================================================== */
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
+  font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-regular);
+  color: var(--hamaco-text);
+  background-color: var(--hamaco-cream);
+  line-height: var(--line-height-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 ::selection {
   background-color: var(--hamaco-orange);
-  color: var(--hamaco-deep-navy);
+  color: var(--hamaco-white);
 }
 
-/* Headings */
+/* Custom Industrial Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--hamaco-gray-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hamaco-navy-light);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--hamaco-gray-100);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hamaco-orange);
+}
+
+/* Headings with Lexend Typography */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-family-display);
   color: var(--hamaco-navy);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 }
 
 h1 {
   font-size: var(--font-size-3xl);
   margin-bottom: var(--space-4);
+  font-weight: var(--font-weight-extrabold);
 }
 
 @media (min-width: 768px) {
@@ -43,6 +69,7 @@ h1 {
 h2 {
   font-size: var(--font-size-2xl);
   margin-bottom: var(--space-3);
+  font-weight: var(--font-weight-bold);
 }
 
 @media (min-width: 768px) {
@@ -64,7 +91,7 @@ h3 {
 }
 
 h4 {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   margin-bottom: var(--space-2);
 }
@@ -78,62 +105,71 @@ p:last-child {
   margin-bottom: 0;
 }
 
-.lead {
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-base);
-  color: var(--hamaco-text);
-  font-weight: var(--font-weight-medium);
-}
-
-@media (min-width: 768px) {
-  .lead {
-    font-size: var(--font-size-lg);
-  }
-}
-
-/* Links & Accessibility */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--hamaco-orange);
-  outline-offset: 2px;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-/* Brand badge / tag */
-.brand-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background-color: var(--hamaco-warm-gray);
+a {
   color: var(--hamaco-navy);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: var(--space-3);
+  text-decoration: none;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.brand-pill::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--hamaco-orange);
+a:hover {
+  color: var(--hamaco-orange);
+}
+
+/* Focus States */
+:focus-visible {
+  outline: 2px solid var(--hamaco-orange);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}
+
+/* Text Gradients */
+.text-gradient-orange {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-gold {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Background Grids & Patterns */
+.bg-grid-dark {
+  background-color: var(--hamaco-navy-deep);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+
+.bg-grid-light {
+  background-color: var(--hamaco-warm-gray);
+  background-image: radial-gradient(rgba(19, 36, 72, 0.08) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+
+/* Glassmorphism Surface Helpers */
+.surface-glass-dark {
+  background: var(--glass-bg-dark);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  border: 1px solid var(--hamaco-border-glass);
+}
+
+.surface-glass-light {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-md);
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
