@@ -1,0 +1,7 @@
+{
+  "name": "hrv-hacoco-demo",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "HAMACO Corporate Website Frontend (HTML/CSS/JS)"
+}

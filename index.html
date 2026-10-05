@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HAMACO — Đồng Hành Cùng Những Công Trình Miền Tây Từ Năm 1976</title>
+  <meta name="description" content="Công ty Cổ phần HAMACO — Hệ sinh thái ba trụ cột Thương mại, Sản xuất và Dịch vụ vật liệu xây dựng hàng đầu vùng Đồng bằng sông Cửu Long.">
+  <link rel="canonical" href="https://hamaco.vn/">
+  
+  <!-- CSS Suite -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="css/utilities.css">
+</head>
+<body>
+
+  <!-- Site Header -->
+  <header class="site-header">
+    <div class="container">
+      <div class="header-inner">
+        <!-- Logo -->
+        <a href="index.html" class="site-logo" aria-label="Trang chủ HAMACO">
+          <div class="logo-badge">H</div>
+          <div class="logo-text">
+            <span class="logo-title">HAMACO</span>
+            <span class="logo-sub">Kể từ năm 1976</span>
+          </div>
+        </a>
+
+        <!-- Desktop Navigation -->
+        <nav class="desktop-nav" aria-label="Điều hướng chính">
+          <a href="index.html" class="nav-link is-active">Trang Chủ</a>
+          <a href="pages/about.html" class="nav-link">Về HAMACO</a>
+          
+          <div class="nav-item-dropdown">
+            <a href="pages/products.html" class="nav-link">
+              Sản Phẩm & Dịch Vụ
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </a>
+            <div class="nav-dropdown-menu">
+              <a href="pages/products.html" class="nav-dropdown-link">Tất Cả Sản Phẩm</a>
+              <a href="pages/factories.html" class="nav-dropdown-link">Nhà Máy & Sản Xuất</a>
+              <a href="pages/services.html" class="nav-dropdown-link">Vận Tải & Kho Bãi</a>
+              <a href="pages/documents.html" class="nav-dropdown-link">Catalogue & Chứng Nhận CQ</a>
+            </div>
+          </div>
+
+          <div class="nav-item-dropdown">
+            <a href="pages/ir.html" class="nav-link">
+              Quan Hệ Cổ Đông
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 4px;" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </a>
+            <div class="nav-dropdown-menu">
+              <a href="pages/ir.html" class="nav-dropdown-link">Tổng Quan Cổ Đông (HAM)</a>
+              <a href="pages/disclosures.html" class="nav-dropdown-link">Báo Cáo Tài Chính & ĐHĐCĐ</a>
+            </div>
+          </div>
+
+          <a href="pages/news.html" class="nav-link">Tin Tức</a>
+          <a href="pages/careers.html" class="nav-link">Tuyển Dụng</a>
+          <a href="pages/contact.html" class="nav-link">Liên Hệ</a>
+        </nav>
+
+        <!-- Actions -->
+        <div class="header-actions">
+          <a href="pages/quote.html" class="btn btn-primary btn-sm hidden-mobile">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Yêu Cầu Báo Giá
+          </a>
+          <button type="button" class="mobile-toggle" data-drawer-toggle aria-label="Mở menu di động" aria-expanded="false">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-drawer-overlay"></div>
+  <div class="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu điều hướng">
+    <div class="drawer-header">
+      <div class="site-logo">
+        <div class="logo-badge">H</div>
+        <div class="logo-text">
+          <span class="logo-title">HAMACO</span>
+          <span class="logo-sub">Từ năm 1976</span>
+        </div>
+      </div>
+      <button type="button" class="drawer-close" data-drawer-close aria-label="Đóng menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <nav class="drawer-nav">
+      <a href="index.html" class="drawer-link is-active">Trang Chủ</a>
+      <a href="pages/about.html" class="drawer-link">Về HAMACO</a>
+      <a href="pages/products.html" class="drawer-link">Danh Mục Sản Phẩm</a>
+      <a href="pages/factories.html" class="drawer-link">Nhà Máy & Sản Xuất</a>
+      <a href="pages/services.html" class="drawer-link">Vận Tải & Kho Bãi</a>
+      <a href="pages/documents.html" class="drawer-link">Catalogue & CQ</a>
+      <a href="pages/ir.html" class="drawer-link">Quan Hệ Cổ Đông (HAM)</a>
+      <a href="pages/disclosures.html" class="drawer-link">Báo Cáo & Công Bố</a>
+      <a href="pages/news.html" class="drawer-link">Tin Tức & Sự Kiện</a>
+      <a href="pages/gallery.html" class="drawer-link">Thư Viện Hình Ảnh</a>
+      <a href="pages/videos.html" class="drawer-link">Phim Tư Liệu</a>
+      <a href="pages/partners.html" class="drawer-link">Nhà Cung Cấp & Đối Tác</a>
+      <a href="pages/careers.html" class="drawer-link">Cơ Hội Nghề Nghiệp</a>
+      <a href="pages/contact.html" class="drawer-link">Liên Hệ & Mạng Lưới</a>
+    </nav>
+    <div class="drawer-footer">
+      <a href="pages/quote.html" class="btn btn-primary btn-full mb-3">Gửi Yêu Cầu Báo Giá</a>
+      <div class="text-center font-semibold text-navy">Hotline: (0292) 3832 176</div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Hero Section -->
+    <section class="home-hero">
+      <div class="container">
+        <div class="brand-pill" style="background: rgba(255,255,255,0.1); color: var(--hamaco-orange);">Nền Tảng Miền Tây • Kể Từ Năm 1976</div>
+        <h1>Bền Bỉ Đồng Hành Cùng Những Công Trình Miền Tây</h1>
+        <p class="hero-subtitle">
+          Từ Hậu Giang – Cần Thơ, HAMACO kết nối ba trụ cột Thương mại, Sản xuất và Dịch vụ logistics vận tải, cung ứng nguồn vật tư chất lượng cao, đúng tiến độ cho mọi công trình tại Đồng bằng sông Cửu Long.
+        </p>
+        <div class="hero-cta-group">
+          <a href="pages/products.html" class="btn btn-primary btn-lg">
+            Khám Phá Sản Phẩm
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+          <a href="pages/about.html" class="btn btn-outline-white btn-lg">
+            Hành Trình 50 Năm HAMACO
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Facts / Verified Numbers -->
+    <section class="section section-cream" style="padding-top: var(--space-8); padding-bottom: var(--space-8);">
+      <div class="container">
+        <div class="grid grid-4">
+          <div class="stat-card">
+            <div class="stat-number">1976</div>
+            <div class="stat-label">Năm khởi đầu tại miền Tây</div>
+            <div class="stat-sub">Tiền thân Công ty Vật tư Hậu Giang</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">3 <span>Trụ Cột</span></div>
+            <div class="stat-label">Thương Mại — Sản Xuất — Dịch Vụ</div>
+            <div class="stat-sub">Chuỗi cung ứng khép kín</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">13 <span>Tỉnh Thành</span></div>
+            <div class="stat-label">Đồng bằng sông Cửu Long</div>
+            <div class="stat-sub">Mạng lưới kho, chi nhánh & cảng sông</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">HAM <span>UPCoM</span></div>
+            <div class="stat-label">Minh bạch quản trị cổ đông</div>
+            <div class="stat-sub">Công bố thông tin đầy đủ, kịp thời</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Three Pillars Section -->
+    <section class="section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="brand-pill">Hệ Sinh Thái Hoạt Động</span>
+          <h2>Ba Trụ Cột Vững Chắc Tạo Nên Sức Mạnh HAMACO</h2>
+          <p class="text-muted">
+            Sự gắn kết chặt chẽ giữa năng lực phân phối thương mại, các cơ sở sản xuất đạt chuẩn và đội ngũ vận tải thủy bộ tạo nên năng lực cung ứng kịp thời cho mọi quy mô dự án.
+          </p>
+        </div>
+
+        <div class="grid grid-3">
+          <!-- Pillar 1: Commercial -->
+          <div class="pillar-card">
+            <div class="pillar-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            </div>
+            <h3>Thương Mại Vật Tư</h3>
+            <p>
+              Nhà phân phối chiến lược thép xây dựng (VAS, Pomina, Hòa Phát), xi măng, khí hóa lỏng LPG (HAMACO Petro), dầu nhờn động cơ và vật liệu hoàn thiện.
+            </p>
+            <ul style="margin: var(--space-4) 0; font-size: var(--font-size-sm); color: var(--hamaco-text-secondary);">
+              <li style="margin-bottom: 6px;">✓ Thép cuộn & thép thanh vằn TCVN, ASTM, JIS</li>
+              <li style="margin-bottom: 6px;">✓ Xi măng bao & xi măng rời công trình</li>
+              <li style="margin-bottom: 6px;">✓ Khí dầu mỏ LPG dân dụng & bồn công nghiệp</li>
+            </ul>
+            <a href="pages/products.html?category=commercial" class="btn btn-outline btn-sm">Xem danh mục thương mại →</a>
+          </div>
+
+          <!-- Pillar 2: Production -->
+          <div class="pillar-card">
+            <div class="pillar-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 20h20"/><path d="M5 20V8l5 4V4l6 6V4l4 4v12"/></svg>
+            </div>
+            <h3>Sản Xuất Vật Liệu</h3>
+            <p>
+              Vận hành các trạm trộn bê tông thương phẩm hiện đại, trạm đóng bao xi măng HAMACO và nhà máy nghiền bột đá siêu mịn CaCO₃ tại KCN Tân Phú Thạnh.
+            </p>
+            <ul style="margin: var(--space-4) 0; font-size: var(--font-size-sm); color: var(--hamaco-text-secondary);">
+              <li style="margin-bottom: 6px;">✓ Bê tông tươi M150 đến M450 kiểm định LAS-XD</li>
+              <li style="margin-bottom: 6px;">✓ Xi măng Pooclăng hỗn hợp PCB40 HAMACO</li>
+              <li style="margin-bottom: 6px;">✓ Bột đá CaCO₃ độ trắng ≥ 97% phục vụ sản xuất</li>
+            </ul>
+            <a href="pages/factories.html" class="btn btn-outline btn-sm">Tham quan cụm nhà máy →</a>
+          </div>
+
+          <!-- Pillar 3: Services -->
+          <div class="pillar-card">
+            <div class="pillar-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <h3>Dịch Vụ & Logistics</h3>
+            <p>
+              Đội sà lan tự hành tải trọng 500 – 2.000 tấn, đội xe bồn bê tông, hệ thống kho bãi ven sông lớn và dịch vụ cho thuê văn phòng tại trung tâm Cần Thơ.
+            </p>
+            <ul style="margin: var(--space-4) 0; font-size: var(--font-size-sm); color: var(--hamaco-text-secondary);">
+              <li style="margin-bottom: 6px;">✓ Vận tải thủy sà lan sông Tiền, sông Hậu, TP.HCM</li>
+              <li style="margin-bottom: 6px;">✓ Cẩu bờ bến cảng tiếp nhận hàng rời 24/7</li>
+              <li style="margin-bottom: 6px;">✓ Cho thuê mặt bằng kho bãi kiên cố, an toàn PCCC</li>
+            </ul>
+            <a href="pages/services.html" class="btn btn-outline btn-sm">Xem dịch vụ vận tải →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Featured Products Preview -->
+    <section class="section section-cream">
+      <div class="container">
+        <div class="d-flex justify-between align-center mb-8 flex-wrap gap-4">
+          <div>
+            <span class="brand-pill">Quy Cách & Tiêu Chuẩn</span>
+            <h2>Sản Phẩm Cung Ứng Tiêu Biểu</h2>
+          </div>
+          <a href="pages/products.html" class="btn btn-outline">Xem Toàn Bộ Sản Phẩm (8 SKU) →</a>
+        </div>
+
+        <div class="grid grid-4">
+          <!-- Item 1 -->
+          <div class="card card-hover">
+            <div class="card-body">
+              <span class="badge badge-orange mb-2">Thép Xây Dựng</span>
+              <h4>Thép Cuộn Ø6 - Ø8</h4>
+              <p style="font-size: var(--font-size-sm);">Tiêu chuẩn TCVN 1651-1:2018, chịu uốn kéo cơ tính đồng đều cho móng sàn công trình.</p>
+              <div style="font-size: var(--font-size-xs); color: var(--hamaco-muted); margin-top: auto;">Thương hiệu: VAS / Pomina</div>
+            </div>
+            <div class="card-footer">
+              <a href="pages/product-detail.html" class="text-navy font-semibold" style="font-size: var(--font-size-sm);">Xem quy cách & CQ →</a>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div class="card card-hover">
+            <div class="card-body">
+              <span class="badge badge-navy mb-2">Sản Xuất Xi Măng</span>
+              <h4>Xi Măng PCB40 HAMACO</h4>
+              <p style="font-size: var(--font-size-sm);">Xi măng Pooclăng hỗn hợp đạt chuẩn TCVN 6260:2020, độ dẻo cao, tăng cường tính kháng phèn mặn.</p>
+              <div style="font-size: var(--font-size-xs); color: var(--hamaco-muted); margin-top: auto;">Sản xuất: Trạm Tân Phú Thạnh</div>
+            </div>
+            <div class="card-footer">
+              <a href="pages/product-detail.html" class="text-navy font-semibold" style="font-size: var(--font-size-sm);">Xem quy cách & CQ →</a>
+            </div>
+          </div>
+
+          <!-- Item 3 -->
+          <div class="card card-hover">
+            <div class="card-body">
+              <span class="badge badge-navy mb-2">Sản Xuất Bê Tông</span>
+              <h4>Bê Tông Tươi M250 - M450</h4>
+              <p style="font-size: var(--font-size-sm);">Cấp phối theo TCVN 9340:2012, giao bằng dàn xe bồn chuyên dụng tận chân công trình.</p>
+              <div style="font-size: var(--font-size-xs); color: var(--hamaco-muted); margin-top: auto;">Công suất: 120 m³/h</div>
+            </div>
+            <div class="card-footer">
+              <a href="pages/product-detail.html" class="text-navy font-semibold" style="font-size: var(--font-size-sm);">Xem quy cách & CQ →</a>
+            </div>
+          </div>
+
+          <!-- Item 4 -->
+          <div class="card card-hover">
+            <div class="card-body">
+              <span class="badge badge-orange mb-2">Khoáng Sản Bột Đá</span>
+              <h4>Bột Đá CaCO₃ Siêu Mịn</h4>
+              <p style="font-size: var(--font-size-sm);">Độ trắng sáng ≥ 97.5%, hàm lượng canxi cacbonat ≥ 98% cho sản xuất công nghiệp và sơn.</p>
+              <div style="font-size: var(--font-size-xs); color: var(--hamaco-muted); margin-top: auto;">Cỡ hạt D50: 2.5 – 15 µm</div>
+            </div>
+            <div class="card-footer">
+              <a href="pages/product-detail.html" class="text-navy font-semibold" style="font-size: var(--font-size-sm);">Xem quy cách & CQ →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IR Snapshot & Governance Widget -->
+    <section class="section">
+      <div class="container">
+        <div class="bento-grid">
+          <div class="bento-col-8">
+            <div class="ir-stock-widget" data-ir-widget>
+              <div class="ir-stock-header">
+                <div>
+                  <div class="ir-ticker">HAM</div>
+                  <div class="ir-market">Thị Trường UPCoM • Mã ISIN: VN000000HAM4</div>
+                </div>
+                <div class="text-right">
+                  <span class="badge badge-success">Dữ liệu tham chiếu</span>
+                  <div style="font-size: var(--font-size-xs); color: rgba(255,255,255,0.7); margin-top: 4px;" data-ir-timestamp>
+                    Cập nhật: 05/10/2026 — 15:00
+                  </div>
+                </div>
+              </div>
+              <div class="ir-price-box">
+                <div class="ir-current-price">10.000 <span style="font-size: 1rem; font-weight: normal;">VNĐ/CP</span></div>
+                <div class="ir-change">Mệnh giá niêm yết</div>
+              </div>
+              <p style="font-size: var(--font-size-xs); color: rgba(255,255,255,0.7); margin-bottom: var(--space-4);">
+                * Chú thích: Dữ liệu thị trường mang tính tham khảo tổng hợp theo hồ sơ đăng ký giao dịch tại VSD/HNX, không cấu thành khuyến nghị đầu tư.
+              </p>
+              <div class="d-flex gap-3 flex-wrap">
+                <a href="pages/ir.html" class="btn btn-primary btn-sm">Xem Trung Tâm Cổ Đông (IR Hub)</a>
+                <a href="pages/disclosures.html" class="btn btn-outline-white btn-sm">Tải Báo Cáo Tài Chính 2025 (PDF)</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="bento-col-4">
+            <div class="card" style="height: 100%; justify-content: center; padding: var(--space-6); background-color: var(--hamaco-cream);">
+              <h4 class="text-navy">Tải Nhanh Tài Liệu Kỹ Thuật</h4>
+              <p style="font-size: var(--font-size-sm); color: var(--hamaco-muted);">
+                Catalogue thép, thông số kỹ thuật xi măng PCB40 và hồ sơ năng lực công ty luôn có sẵn để tải về trực tiếp.
+              </p>
+              <div class="d-flex flex-column gap-2 mt-4">
+                <a href="pages/documents.html" class="btn btn-navy btn-sm">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Thư Viện Catalogue & CQ
+                </a>
+                <a href="pages/contact.html" class="btn btn-outline btn-sm">Mạng Lưới 6 Chi Nhánh Miền Tây</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Quote Banner CTA -->
+    <section class="section section-navy" style="background: linear-gradient(135deg, var(--hamaco-deep-navy) 0%, var(--hamaco-navy) 100%);">
+      <div class="container text-center">
+        <h2 style="color: var(--hamaco-white); max-width: 720px; margin-left: auto; margin-right: auto; margin-bottom: var(--space-4);">
+          Bạn Cần Tra Cứu Quy Cách Hoặc Báo Giá Vật Liệu Cho Công Trình?
+        </h2>
+        <p style="color: rgba(255,255,255,0.8); max-width: 600px; margin-left: auto; margin-right: auto; margin-bottom: var(--space-6);">
+          Đội ngũ chuyên viên HAMACO sẵn sàng tư vấn chi tiết về tiêu chuẩn kỹ thuật, khối lượng và phương án vận chuyển sà lan tận chân bến bãi công trình.
+        </p>
+        <div class="d-flex justify-center gap-4 flex-wrap">
+          <a href="pages/quote.html" class="btn btn-primary btn-lg">Gửi Yêu Cầu Báo Giá (Wizard 3 Bước)</a>
+          <a href="tel:02923832176" class="btn btn-outline-white btn-lg">Gọi Trực Tiếp: (0292) 3832 176</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Col 1: About -->
+        <div class="footer-col">
+          <div class="site-logo mb-4">
+            <div class="logo-badge" style="background: rgba(255,255,255,0.1); border-color: var(--hamaco-orange);">H</div>
+            <div class="logo-text">
+              <span class="logo-title" style="color: var(--hamaco-white);">HAMACO</span>
+              <span class="logo-sub" style="color: rgba(255,255,255,0.6);">Thành lập năm 1976</span>
+            </div>
+          </div>
+          <p style="font-size: var(--font-size-sm); color: rgba(255,255,255,0.75); line-height: 1.6; margin-bottom: var(--space-4);">
+            Công ty Cổ phần HAMACO — Tiền thân là Công ty Vật tư Hậu Giang. Bền bỉ đồng hành cùng công trình và hoạt động sản xuất tại các tỉnh Đồng bằng sông Cửu Long suốt nửa thế kỷ.
+          </p>
+          <div class="footer-stock-tag">
+            <span>UPCoM: HAM</span>
+            <span>•</span>
+            <span>Mệnh giá: 10.000 đ</span>
+          </div>
+        </div>
+
+        <!-- Col 2: Navigation -->
+        <div class="footer-col">
+          <h4>Về Doanh Nghiệp</h4>
+          <div class="footer-links">
+            <a href="pages/about.html" class="footer-link">Lịch Sử Hình Thành (1976 - 2026)</a>
+            <a href="pages/about.html#so-do-to-chuc" class="footer-link">Sơ Đồ Tổ Chức & HĐQT</a>
+            <a href="pages/factories.html" class="footer-link">Cụm Nhà Máy Tân Phú Thạnh</a>
+            <a href="pages/services.html" class="footer-link">Đội Sà Lan Vận Tải Thủy</a>
+            <a href="pages/partners.html" class="footer-link">Nhà Cung Cấp & Đối Tác</a>
+            <a href="pages/careers.html" class="footer-link">Cơ Hội Tuyển Dụng</a>
+          </div>
+        </div>
+
+        <!-- Col 3: Products & IR -->
+        <div class="footer-col">
+          <h4>Sản Phẩm & Cổ Đông</h4>
+          <div class="footer-links">
+            <a href="pages/products.html" class="footer-link">Thép Xây Dựng VAS & Pomina</a>
+            <a href="pages/products.html" class="footer-link">Xi Măng PCB40 HAMACO</a>
+            <a href="pages/products.html" class="footer-link">Bê Tông Tươi M150 - M450</a>
+            <a href="pages/products.html" class="footer-link">Bột Đá Siêu Mịn CaCO₃</a>
+            <a href="pages/documents.html" class="footer-link">Tải Catalogue & Chứng Nhận CQ</a>
+            <a href="pages/ir.html" class="footer-link">Quan Hệ Cổ Đông (IR Hub)</a>
+            <a href="pages/disclosures.html" class="footer-link">Báo Cáo Tài Chính Đã Kiểm Toán</a>
+          </div>
+        </div>
+
+        <!-- Col 4: Contact -->
+        <div class="footer-col">
+          <h4>Liên Hệ Trụ Sở Chính</h4>
+          <div class="footer-contact-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>Số 184 Trần Hưng Đạo, P. An Nghiệp, Q. Ninh Kiều, TP. Cần Thơ</span>
+          </div>
+          <div class="footer-contact-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span>(0292) 3832 176 - 3832 177</span>
+          </div>
+          <div class="footer-contact-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span>info@hamaco.vn</span>
+          </div>
+          <div class="footer-contact-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Thứ 2 – Thứ 7: 07:30 – 17:00</span>
+          </div>
+          <div style="margin-top: var(--space-4);">
+            <a href="pages/contact.html" class="btn btn-outline-white btn-sm">Xem Bản Đồ Hệ Thống Chi Nhánh →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="footer-bottom">
+        <div>
+          © 1976 – 2026 Công Ty Cổ Phần HAMACO. Bảo lưu mọi quyền.
+        </div>
+        <div class="d-flex gap-4">
+          <a href="https://hamaco.vn/chinh-sach-quyen-rieng-tu-1120" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.6);">Chính Sách Quyền Riêng Tư</a>
+          <span>•</span>
+          <a href="pages/documents.html" style="color: rgba(255,255,255,0.6);">Quy Định Pháp Lý & CQ</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

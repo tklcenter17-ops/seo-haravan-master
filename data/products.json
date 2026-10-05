@@ -1,0 +1,141 @@
+[
+  {
+    "id": "thep-cuon-xay-dung",
+    "name": "Thép Cuộn Xây Dựng Ø6 - Ø8",
+    "category": "commercial",
+    "categoryName": "Thương Mại Thép",
+    "brand": "HAMACO / VAS / Hòa Phát",
+    "standard": "TCVN 1651-1:2018 / ASTM A615",
+    "application": "Công trình hạ tầng, nhà xưởng, dân dụng miền Tây",
+    "image": "thep-cuon.jpg",
+    "description": "Thép cuộn tròn trơn bề mặt sáng bóng, cơ tính chịu uốn kéo đồng đều theo tiêu chuẩn quốc gia.",
+    "specs": [
+      { "name": "Đường kính danh định", "value": "6.0mm – 8.0mm" },
+      { "name": "Giới hạn chảy (Re)", "value": "≥ 240 N/mm²" },
+      { "name": "Giới hạn bền kéo (Rm)", "value": "380 – 510 N/mm²" },
+      { "name": "Độ giãn dài tương đối", "value": "≥ 20%" }
+    ],
+    "cqAvailable": true
+  },
+  {
+    "id": "thep-thanh-van",
+    "name": "Thép Thanh Vằn D10 - D40",
+    "category": "commercial",
+    "categoryName": "Thương Mại Thép",
+    "brand": "VAS / Pomina / VinaKyoei",
+    "standard": "TCVN 1651-2:2018 / JIS G3112 (CB300, CB400, CB500)",
+    "application": "Dầm, cột, móng, kết cấu chịu tải trọng cao",
+    "image": "thep-thanh-van.jpg",
+    "description": "Thép cốt bê tông cán nóng dạng thanh vằn gân xoắn, độ bám dính bê tông tối ưu cho mọi địa chất miền Tây.",
+    "specs": [
+      { "name": "Mác thép", "value": "CB300-V, CB400-V, CB500-V" },
+      { "name": "Quy cách chiều dài", "value": "11.7m / cây" },
+      { "name": "Bán kính uốn", "value": "3d – 4d" }
+    ],
+    "cqAvailable": true
+  },
+  {
+    "id": "xi-mang-pcb40",
+    "name": "Xi Măng Pooclăng Hỗn Hợp PCB40 HAMACO",
+    "category": "production",
+    "categoryName": "Sản Xuất Xi Măng",
+    "brand": "HAMACO",
+    "standard": "TCVN 6260:2020",
+    "application": "Đổ bê tông móng, sàn, dầm công trình dân dụng & công nghiệp",
+    "image": "xi-mang-pcb40.jpg",
+    "description": "Xi măng PCB40 do HAMACO trực tiếp phối trộn và đóng bao với độ dẻo cao, đông kết ổn định, kháng phèn mặn ĐBSCL.",
+    "specs": [
+      { "name": "Độ mịn (diện tích bề mặt)", "value": "≥ 2800 cm²/g" },
+      { "name": "Cường độ nén 3 ngày", "value": "≥ 18 MPa" },
+      { "name": "Cường độ nén 28 ngày", "value": "≥ 40 MPa" },
+      { "name": "Độ ổn định thể tích", "value": "≤ 10 mm" }
+    ],
+    "cqAvailable": true
+  },
+  {
+    "id": "be-tong-thuong-pham",
+    "name": "Bê Tông Tươi / Bê Tông Thương Phẩm M250 - M450",
+    "category": "production",
+    "categoryName": "Sản Xuất Bê Tông",
+    "brand": "Bê Tông HAMACO",
+    "standard": "TCVN 9340:2012 / ASTM C94",
+    "application": "Cầu đường giao thông, nhà xưởng KCN, cao ốc",
+    "image": "be-tong-thuong-pham.jpg",
+    "description": "Hệ thống trạm trộn hiện đại cùng dàn xe bồn chuyên dụng cấp bê tông tươi đúng độ sụt và cường độ tận chân công trình.",
+    "specs": [
+      { "name": "Mác bê tông", "value": "M150, M200, M250, M300, M350, M400, M450" },
+      { "name": "Độ sụt", "value": "12 ± 2 cm hoặc theo yêu cầu thiết kế" },
+      { "name": "Công suất trạm", "value": "90 - 120 m³/h" }
+    ],
+    "cqAvailable": true
+  },
+  {
+    "id": "bot-da-voi-caco3",
+    "name": "Bột Đá Vôi Siêu Mịn CaCO₃ HAMACO",
+    "category": "production",
+    "categoryName": "Khoáng Sản & Bột Đá",
+    "brand": "HAMACO",
+    "standard": "TCVN / ISO 9001:2015",
+    "application": "Sản xuất sơn, nhựa, cao su, giấy, xử lý nước thủy sản",
+    "image": "bot-da-caco3.jpg",
+    "description": "Khai thác và nghiền siêu mịn trên dây chuyền công nghệ cao, độ trắng sáng tự nhiên ≥ 97%, hàm lượng CaCO3 ≥ 98%.",
+    "specs": [
+      { "name": "Hàm lượng CaCO₃", "value": "≥ 98.2%" },
+      { "name": "Độ trắng", "value": "≥ 97.5%" },
+      { "name": "Độ ẩm", "value": "≤ 0.2%" },
+      { "name": "Cỡ hạt (D50)", "value": "2.5 – 15 µm" }
+    ],
+    "cqAvailable": true
+  },
+  {
+    "id": "khi-dau-mo-lpg",
+    "name": "Khí Dầu Mỏ Hóa Lỏng LPG Dân Dụng & Công Nghiệp",
+    "category": "commercial",
+    "categoryName": "Thương Mại LPG & Năng Lượng",
+    "brand": "HAMACO Petro",
+    "standard": "TCVN 8355:2010",
+    "application": "Cung cấp năng lượng nhiệt cho nhà máy, lò nung, nhà hàng, hộ gia đình",
+    "image": "lpg-hamaco.jpg",
+    "description": "Mạng lưới phân phối bình gas 12kg, 45kg và bồn công nghiệp an toàn tuyệt đối theo tiêu chuẩn PCCC kiểm định nghiêm ngặt.",
+    "specs": [
+      { "name": "Tỉ lệ Propane / Butane", "value": "30:70 hoặc 50:50" },
+      { "name": "Nhiệt trị", "value": "≥ 11.000 kcal/kg" },
+      { "name": "Áp suất hơi tại 37.8°C", "value": "≤ 1430 kPa" }
+    ],
+    "cqAvailable": true
+  },
+  {
+    "id": "van-tai-thuy-bo",
+    "name": "Dịch Vụ Vận Tải Đường Thủy ĐBSCL & Xe Tải Chuyên Dụng",
+    "category": "services",
+    "categoryName": "Dịch Vụ Vận Tải",
+    "brand": "Vận Tải HAMACO",
+    "standard": "Đăng kiểm Thủy - Bộ Việt Nam",
+    "application": "Vận chuyển vật liệu xây dựng, hàng rời, thiết bị nặng khắp miền Tây",
+    "image": "van-tai-thuy.jpg",
+    "description": "Đội sà lan tự hành tải trọng 500 – 2.000 tấn và đội xe đầu kéo, xe bồn bê tông, kết nối thông suốt mạng lưới kênh rạch miền Tây.",
+    "specs": [
+      { "name": "Tải trọng sà lan", "value": "500 – 2.000 tấn" },
+      { "name": "Đội xe bộ", "value": "Hơn 50 đầu kéo và xe chuyên dùng" },
+      { "name": "Địa bàn phục vụ", "value": "13 tỉnh thành Đồng bằng Sông Cửu Long và TP.HCM" }
+    ],
+    "cqAvailable": false
+  },
+  {
+    "id": "cho-thue-kho-bai",
+    "name": "Dịch Vụ Cho Thuê Kho Bãi & Văn Phòng",
+    "category": "services",
+    "categoryName": "Dịch Vụ Kho Bãi & BĐS",
+    "brand": "HAMACO",
+    "standard": "PCCC Cấp Phép / Tiêu chuẩn kho bãi",
+    "application": "Lưu trữ hàng hóa, nguyên vật liệu sản xuất, bến bốc dỡ ven sông",
+    "image": "kho-bai-hamaco.jpg",
+    "description": "Hệ thống tổng kho và cảng sông tại Cần Thơ, Hậu Giang nằm ngay các trục giao thông huyết mạch, mặt bằng kiên cố, an ninh 24/7.",
+    "specs": [
+      { "name": "Tổng diện tích kho", "value": "Hơn 30.000 m²" },
+      { "name": "Cẩu bờ & bến cập", "value": "Cẩu bờ công suất 15 tấn, tiếp nhận tàu/sà lan đến 2.000 tấn" },
+      { "name": "Hệ thống PCCC", "value": "Tự động đạt chuẩn thẩm duyệt" }
+    ],
+    "cqAvailable": false
+  }
+]

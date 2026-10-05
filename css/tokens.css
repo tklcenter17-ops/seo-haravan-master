@@ -1,0 +1,96 @@
+/* ==========================================================================
+   HAMACO DESIGN SYSTEM — CSS TOKENS (tokens.css)
+   ========================================================================== */
+
+:root {
+  /* Brand Color Palette */
+  --hamaco-navy: #1B3A6B;
+  --hamaco-navy-light: #254d8c;
+  --hamaco-deep-navy: #102A4C;
+  --hamaco-orange: #F5A623;
+  --hamaco-orange-dark: #C77B00;
+  --hamaco-orange-light: #FFF4E5;
+  --hamaco-cream: #FAF9F6;
+  --hamaco-warm-gray: #F1F0EC;
+  --hamaco-gray-100: #F8F9FA;
+  --hamaco-gray-200: #E9ECEF;
+  --hamaco-border: #D9D8D2;
+  --hamaco-border-subtle: rgba(27, 58, 107, 0.08);
+  --hamaco-text: #1D2733;
+  --hamaco-text-secondary: #4A5568;
+  --hamaco-muted: #667085;
+  --hamaco-white: #FFFFFF;
+
+  /* Semantic Feedback */
+  --hamaco-success: #2F7D5B;
+  --hamaco-success-light: #EBF7F0;
+  --hamaco-danger: #B54747;
+  --hamaco-danger-light: #FDECEC;
+  --hamaco-info: #1769AA;
+  --hamaco-info-light: #E6F3FA;
+
+  /* Typography Scale */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-md: 1.125rem;   /* 18px */
+  --font-size-lg: 1.25rem;    /* 20px */
+  --font-size-xl: 1.5rem;     /* 24px */
+  --font-size-2xl: 1.75rem;   /* 28px */
+  --font-size-3xl: 2.25rem;   /* 36px */
+  --font-size-4xl: 3rem;      /* 48px */
+  --font-size-display: 3.5rem;/* 56px */
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.35;
+  --line-height-base: 1.65;
+  --line-height-loose: 1.8;
+
+  /* Spacing Scale (8px system) */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem;  /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem;    /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem;  /* 24px */
+  --space-8: 2rem;    /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem;   /* 48px */
+  --space-16: 4rem;   /* 64px */
+  --space-20: 5rem;   /* 80px */
+  --space-24: 6rem;   /* 96px */
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-subtle: 0 1px 3px rgba(16, 42, 76, 0.04);
+  --shadow-sm: 0 2px 8px rgba(16, 42, 76, 0.06);
+  --shadow-md: 0 4px 16px rgba(16, 42, 76, 0.08);
+  --shadow-lg: 0 8px 24px rgba(16, 42, 76, 0.12);
+  --shadow-xl: 0 16px 40px rgba(16, 42, 76, 0.16);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout Containers */
+  --container-max-width: 1240px;
+  --container-padding: 1.5rem;
+  --header-height: 76px;
+  --header-height-mobile: 64px;
+}

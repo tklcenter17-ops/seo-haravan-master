@@ -1,0 +1,68 @@
+[
+  {
+    "id": "doc-bctc-2025",
+    "title": "Báo Cáo Tài Chính Kiểm Toán Năm 2025 (Hợp Nhất)",
+    "category": "ir",
+    "categoryName": "Báo Cáo Tài Chính",
+    "year": "2026",
+    "date": "30/03/2026",
+    "format": "PDF",
+    "size": "2.4 MB",
+    "downloadUrl": "#download-bctc-2025"
+  },
+  {
+    "id": "doc-bctn-2025",
+    "title": "Báo Cáo Thường Niên Năm 2025 — Bền Bỉ Vươn Xa",
+    "category": "ir",
+    "categoryName": "Báo Cáo Thường Niên",
+    "year": "2026",
+    "date": "15/04/2026",
+    "format": "PDF",
+    "size": "8.7 MB",
+    "downloadUrl": "#download-bctn-2025"
+  },
+  {
+    "id": "doc-nq-dhdcd-2026",
+    "title": "Nghị Quyết & Biên Bản Đại Hội Đồng Cổ Đông Thường Niên 2026",
+    "category": "ir",
+    "categoryName": "Đại Hội Cổ Đông",
+    "year": "2026",
+    "date": "28/04/2026",
+    "format": "PDF",
+    "size": "1.1 MB",
+    "downloadUrl": "#download-nq-dhdcd-2026"
+  },
+  {
+    "id": "doc-catalogue-thep",
+    "title": "Catalogue Thép Xây Dựng & Thép Hình Kết Cấu HAMACO 2026",
+    "category": "technical",
+    "categoryName": "Catalogue Kỹ Thuật",
+    "year": "2026",
+    "date": "10/01/2026",
+    "format": "PDF",
+    "size": "4.8 MB",
+    "downloadUrl": "#download-cat-thep"
+  },
+  {
+    "id": "doc-cq-xi-mang",
+    "title": "Chứng Nhận Hợp Chuẩn & Tiêu Chuẩn Xuất Xưởng Xi Măng PCB40",
+    "category": "technical",
+    "categoryName": "Chứng Nhận Chất Lượng CQ",
+    "year": "2025",
+    "date": "05/11/2025",
+    "format": "PDF",
+    "size": "1.5 MB",
+    "downloadUrl": "#download-cq-ximang"
+  },
+  {
+    "id": "doc-cq-caco3",
+    "title": "Chứng Nhận Phân Tích Lý Hóa Bột Đá Siêu Mịn CaCO₃ HAMACO",
+    "category": "technical",
+    "categoryName": "Chứng Nhận Chất Lượng CQ",
+    "year": "2025",
+    "date": "18/12/2025",
+    "format": "PDF",
+    "size": "950 KB",
+    "downloadUrl": "#download-cq-caco3"
+  }
+]

@@ -1,0 +1,61 @@
+[
+  {
+    "id": "job-qa-qc-betong",
+    "title": "Kỹ Sư Quản Lý Chất Lượng Bê Tông (QA/QC)",
+    "department": "Khối Sản Xuất — Trạm Trộn Bê Tông",
+    "location": "Hậu Giang (KCN Tân Phú Thạnh)",
+    "type": "Toàn thời gian",
+    "salary": "12.000.000 – 18.000.000 VNĐ",
+    "deadline": "30/11/2026",
+    "summary": "Kiểm soát cấp phối, lấy mẫu thí nghiệm độ sụt, nén mẫu bê tông tại phòng thí nghiệm hiện trường LAS-XD.",
+    "requirements": [
+      "Tốt nghiệp Cao đẳng/Đại học chuyên ngành Xây dựng Dân dụng, Vật liệu Xây dựng hoặc liên quan.",
+      "Tối thiểu 1 năm kinh nghiệm kiểm tra chất lượng bê tông thương phẩm hoặc tại phòng thí nghiệm vật liệu.",
+      "Nắm vững các tiêu chuẩn TCVN về cốt liệu, xi măng và bê tông nặng."
+    ],
+    "benefits": [
+      "Lương thỏa thuận theo năng lực + Thưởng hiệu quả sản xuất theo quý.",
+      "Xe đưa rước nhân viên từ Cần Thơ đến Nhà máy Hậu Giang.",
+      "Đóng đầy đủ BHXH, BHYT, BHTN và Bảo hiểm tai nạn 24/24."
+    ]
+  },
+  {
+    "id": "job-kinh-doanh-thep",
+    "title": "Chuyên Viên Kinh Doanh Thép Công Trình & Dự Án",
+    "department": "Khối Thương Mại Thép",
+    "location": "Cần Thơ & Các tỉnh Tây Nam Bộ",
+    "type": "Toàn thời gian",
+    "salary": "10.000.000 VNĐ + Hoa hồng doanh số",
+    "deadline": "15/11/2026",
+    "summary": "Chăm sóc hệ thống đại lý VLXD cấp 1, làm việc trực tiếp với các nhà thầu thi công hạ tầng tại ĐBSCL.",
+    "requirements": [
+      "Tốt nghiệp Trung cấp trở lên chuyên ngành Kinh tế, QTKD hoặc Kỹ thuật Xây dựng.",
+      "Ưu tiên ứng viên có kinh nghiệm bán buôn thép xây dựng, xi măng tại thị trường miền Tây.",
+      "Giao tiếp tốt, nhanh nhạy với giá thị trường và có xe máy di chuyển."
+    ],
+    "benefits": [
+      "Chế độ hoa hồng kinh doanh hấp dẫn, không giới hạn trần thu nhập.",
+      "Phụ cấp xăng xe, điện thoại, công tác phí thực tế.",
+      "Khám sức khỏe định kỳ hàng năm và du lịch nghỉ mát cùng công ty."
+    ]
+  },
+  {
+    "id": "job-thuyen-truong-salan",
+    "title": "Thuyền Trưởng / Thuyền Phó Sà Lan Tự Hành Đường Thủy",
+    "department": "Khối Dịch Vụ Vận Tải Thủy",
+    "location": "Tuyến Cần Thơ – Hậu Giang – TP.HCM",
+    "type": "Toàn thời gian",
+    "salary": "15.000.000 – 22.000.000 VNĐ",
+    "deadline": "25/11/2026",
+    "summary": "Điều khiển phương tiện thủy sà lan tự hành 1.000 - 2.000 tấn chở hàng rời và container vật liệu xây dựng.",
+    "requirements": [
+      "Có bằng Thuyền trưởng hạng 2 hoặc hạng 3 đường thủy nội địa còn hiệu lực.",
+      "Có kinh nghiệm điều khiển phương tiện vận tải đường thủy trên sông Tiền, sông Hậu và kênh Chợ Gạo.",
+      "Có tinh thần trách nhiệm, cẩn trọng, kỷ luật an toàn hàng hải."
+    ],
+    "benefits": [
+      "Phụ cấp chuyến đi, phụ cấp định mức dầu và tiền cơm trên phương tiện.",
+      "Chế độ đãi ngộ ổn định, bảo hiểm theo quy định nhà nước."
+    ]
+  }
+]

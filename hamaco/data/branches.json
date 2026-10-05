@@ -1,0 +1,62 @@
+[
+  {
+    "id": "tru-so-can-tho",
+    "type": "headquarters",
+    "name": "Trụ Sở Chính — Công Ty Cổ Phần HAMACO",
+    "address": "Số 184 Trần Hưng Đạo, P. An Nghiệp, Q. Ninh Kiều, TP. Cần Thơ",
+    "phone": "(0292) 3832 176 - 3832 177",
+    "email": "info@hamaco.vn",
+    "area": "Cần Thơ",
+    "mapCoordinates": "10.0345, 105.7789"
+  },
+  {
+    "id": "chi-nhanh-hau-giang",
+    "type": "factory",
+    "name": "Nhà Máy Bê Tông & Xi Măng Tân Phú Thạnh",
+    "address": "KCN Tân Phú Thạnh, Xã Tân Phú Thạnh, Huyện Châu Thành A, Tỉnh Hậu Giang",
+    "phone": "(0293) 3953 222",
+    "email": "betong@hamaco.vn",
+    "area": "Hậu Giang",
+    "mapCoordinates": "9.9482, 105.7412"
+  },
+  {
+    "id": "chi-nhanh-tphcm",
+    "type": "branch",
+    "name": "Văn Phòng Đại Diện TP. Hồ Chí Minh",
+    "address": "Tầng 5, Tòa nhà Vinatex, Số 39 Bến Vân Đồn, Quận 4, TP. Hồ Chí Minh",
+    "phone": "(028) 3943 5588",
+    "email": "hcm@hamaco.vn",
+    "area": "TP.HCM",
+    "mapCoordinates": "10.7632, 106.7025"
+  },
+  {
+    "id": "chi-nhanh-vinh-long",
+    "type": "branch",
+    "name": "Chi Nhánh HAMACO Vĩnh Long & Kho Vật Liệu",
+    "address": "Số 48 Quốc Lộ 1A, Phường Tân Ngãi, TP. Vĩnh Long, Tỉnh Vĩnh Long",
+    "phone": "(0270) 3824 115",
+    "email": "vinhlong@hamaco.vn",
+    "area": "Vĩnh Long",
+    "mapCoordinates": "10.2536, 105.9722"
+  },
+  {
+    "id": "chi-nhanh-soc-trang",
+    "type": "branch",
+    "name": "Chi Nhánh HAMACO Sóc Trăng",
+    "address": "Số 125 Lê Duẩn, Phường 3, TP. Sóc Trăng, Tỉnh Sóc Trăng",
+    "phone": "(0299) 3821 445",
+    "email": "soctrang@hamaco.vn",
+    "area": "Sóc Trăng",
+    "mapCoordinates": "9.6033, 105.9744"
+  },
+  {
+    "id": "chi-nhanh-an-giang",
+    "type": "branch",
+    "name": "Chi Nhánh HAMACO An Giang & Cảng Bốc Dỡ Sông Hậu",
+    "address": "Số 78 Trần Hưng Đạo, P. Mỹ Thới, TP. Long Xuyên, Tỉnh An Giang",
+    "phone": "(0296) 3931 668",
+    "email": "angiang@hamaco.vn",
+    "area": "An Giang",
+    "mapCoordinates": "10.3833, 105.4333"
+  }
+]
