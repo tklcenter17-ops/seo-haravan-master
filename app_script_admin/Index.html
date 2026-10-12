@@ -589,6 +589,10 @@
           <button class="btn-export-csv" onclick="exportToCSV()" title="Xuất dữ liệu đang lọc ra file CSV">
             <i class="fas fa-file-csv"></i> Xuất CSV
           </button>
+          <!-- Export ViettelPost -->
+          <button class="btn btn-viettel-export" onclick="exportViettelPostFromProducts()" title="Xuất đơn hàng đang lọc ra file Excel chuẩn ViettelPost để import tạo đơn hàng loạt">
+            <i class="fas fa-shipping-fast"></i> Xuất Excel ViettelPost
+          </button>
           <button class="btn btn-primary" onclick="openAddModal()">
             <i class="fas fa-plus"></i> Thêm sản phẩm
           </button>
@@ -1151,6 +1155,9 @@
             </button>
             <button class="btn btn-ghost btn-sm" onclick="loadDailyOrders(true)" title="Xóa cache & đọc dữ liệu mới nhất từ Google Sheet">
               <i class="fas fa-sync-alt"></i> Làm mới
+            </button>
+            <button class="btn btn-viettel-export btn-sm" onclick="exportViettelPostFromDaily()" title="Xuất toàn bộ đơn hàng trong ngày ra file Excel chuẩn ViettelPost">
+              <i class="fas fa-shipping-fast"></i> Xuất Excel ViettelPost
             </button>
           </div>
         </div>

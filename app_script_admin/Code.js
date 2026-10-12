@@ -4901,3 +4901,29 @@ function getRadarHeatmapData() {
   };
 }
 
+/**
+ * Menu tùy chỉnh trên Google Sheets khi mở bảng tính
+ */
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('📦 Viettel Post')
+      .addItem('⚡ Mở Web App Quản Lý & Xuất Excel Viettel Post', 'openViettelWebApp_')
+      .addToUi();
+  } catch (e) {
+    // Standalone script
+  }
+}
+
+function openViettelWebApp_() {
+  var url = ScriptApp.getService().getUrl();
+  var html = HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;padding:20px;text-align:center;">' +
+    '<h3 style="color:#e02c1b;">📦 Hệ Thống Bán Hàng & Viettel Post</h3>' +
+    '<p>Bấm nút bên dưới để mở giao diện quản trị và sử dụng tính năng Xuất Excel Viettel Post chuẩn 100%:</p>' +
+    '<br><a href="' + (url || '#') + '" target="_blank" style="display:inline-block;padding:10px 20px;background:#e02c1b;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">🚀 Mở Web App Quản Lý</a>' +
+    '</div>'
+  ).setWidth(450).setHeight(220);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Quản Lý Đơn Viettel Post');
+}
+

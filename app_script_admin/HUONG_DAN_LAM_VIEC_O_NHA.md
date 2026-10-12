@@ -141,6 +141,29 @@ git pull origin master
 
 ---
 
+## 7. 📦 Tính Năng Mới: Nút "Xuất Excel Chuẩn ViettelPost"
+
+Hệ thống đã có sẵn nút **"Xuất Excel ViettelPost"** màu đỏ nổi bật tại 3 vị trí:
+1. **Quản lý sản phẩm (`#page-products`):** Nằm cạnh nút "Xuất CSV" ở thanh toolbar trên cùng. Bấm vào sẽ tự động lọc các đơn có thông tin khách và xuất ra file Excel.
+2. **Đơn chốt theo ngày (`#page-daily`):** Nằm ở thanh điều khiển ngày. Bấm vào sẽ lấy toàn bộ đơn hàng trong ngày và xuất file Excel.
+3. **Tạo đơn Viettel (`#page-viettel_orders`):** Nằm ở menu thanh bên (Sidebar), cho phép quản lý chi tiết từng kiện hàng đã gộp.
+
+### ✨ Các trường dữ liệu được tự động điền chuẩn 100%:
+- **Trọng lượng:** Mặc định `300` gram (nếu chưa nhập).
+- **Người trả cước:** Tự động điền `Người nhận trả cước` (với đơn COD) hoặc `Người gửi trả cước` (với đơn Freeship/CK đủ).
+- **Tiền COD:** = `0` nếu đã CK đủ; = `Giá bán` nếu thu hộ COD.
+- **Giá trị hàng hóa:** Luôn đảm bảo `> 0` để ViettelPost không báo lỗi thiếu trường bắt buộc.
+- **Yêu cầu giao hàng:** Luôn kèm `Cho xem hàng không cho thử`.
+- **Số điện thoại:** Định dạng chuẩn văn bản `@` giữ nguyên số 0 ở đầu.
+
+👉 **Cách tạo đơn trên web ViettelPost:**
+1. Bấm nút **"Xuất Excel ViettelPost"** trên Web App để tải file `.xlsx`.
+2. Mở web [viettelpost.com.vn](https://viettelpost.com.vn) ➔ Vào mục **Tạo đơn** ➔ Chọn **Nhập Excel**.
+3. Kéo thả file vừa tải lên ➔ Hệ thống xanh 100%, không bị báo thiếu data ➔ Bấm **Đẩy đơn** là xong!
+
+---
+
 ## ⚠️ Lưu Ý Quan Trọng
 - **Không chỉnh sửa thư mục `seo/`**: Thư mục `seo/` dùng riêng cho dự án SEO Theme Haravan.
 - **Không hardcode thông tin nhạy cảm**: Không ghi mật khẩu hay Bot Token trực tiếp vào code; hãy dùng `ScriptProperties` của Google Apps Script hoặc biến môi trường `.env`.
+- **Cơ sở dữ liệu VPS an toàn 100%**: File database `sales_admin.db` lưu trên VPS `103.166.185.85` hoàn toàn không bị ảnh hưởng khi deploy Vercel hoặc cập nhật code frontend.

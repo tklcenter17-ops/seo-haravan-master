@@ -5464,6 +5464,117 @@ function saveViettelPackage() {
   renderViettelOrders(packages, getViettelDateRange());
 }
 
+// ══════════════════════════════════════════════════════════
+// XUẤT EXCEL CHUẨN VIETTELPOST TỪ QUẢN LÝ SẢN PHẨM & ĐƠN NGÀY
+// ══════════════════════════════════════════════════════════
+
+function exportViettelPostFromProducts() {
+  const rows = (typeof filteredRows !== 'undefined' && Array.isArray(filteredRows) && filteredRows.length > 0)
+    ? filteredRows
+    : (window.allRows || []);
+  if (!rows || !rows.length) {
+    showToast('Không có dữ liệu sản phẩm để xuất!', 'warning');
+    return;
+  }
+
+  const orders = rows.filter(r => {
+    const hasCustomer = (r.tenKhach && String(r.tenKhach).trim()) || (r.sdtKhach && String(r.sdtKhach).trim());
+    return hasCustomer && r.trangThai !== 'Đã xóa';
+  });
+
+  if (!orders.length) {
+    showToast('Không tìm thấy đơn hàng nào có thông tin khách hàng (Tên/SĐT) trong danh sách đang lọc!', 'warning');
+    return;
+  }
+
+  const packages = (typeof groupOrdersByCustomer_ === 'function')
+    ? groupOrdersByCustomer_(orders)
+    : orders.map((o, i) => ({
+        key: 'pkg_' + i,
+        tenKhach: o.tenKhach || '',
+        sdtKhach: o.sdtKhach || '',
+        diaChi: o.diaChi || '',
+        maSPList: [o.maSP || ''],
+        tongGiaBan: Number(o.giaBan) || 0,
+        tongTienCOD: Number(o.tienCOD) || 0,
+        tongKhachCoc: Number(o.khachCoc) || 0,
+        tongKhoiLuong: Number(o.khoiLuong) || 300,
+        items: [o]
+      }));
+
+  if (!packages || !packages.length) {
+    showToast('Không tạo được kiện hàng hợp lệ!', 'warning');
+    return;
+  }
+
+  const missingAddress = packages.filter(p => !p.diaChi || !String(p.diaChi).trim());
+  if (missingAddress.length > 0) {
+    const listNames = missingAddress.slice(0, 5).map(p => `${p.tenKhach || 'Khách'} (${(p.maSPList || []).join('+')})`).join(', ') + (missingAddress.length > 5 ? '...' : '');
+    if (!confirm(`Cảnh báo: Có ${missingAddress.length} kiện hàng chưa có Địa chỉ nhận hàng (${listNames})!\nViettel Post sẽ từ chối tạo đơn nếu thiếu địa chỉ.\n\nBạn có muốn tiếp tục xuất file Excel không?`)) {
+      return;
+    }
+  }
+
+  generateViettelExcelFile(packages, 'ViettelPost_SanPham');
+  showToast(`Đã xuất ${packages.length} kiện hàng Viettel Post từ ${orders.length} sản phẩm!`, 'success');
+}
+
+function exportViettelPostFromDaily() {
+  const range = (typeof getDailyDateRange === 'function')
+    ? getDailyDateRange()
+    : { start: (typeof getTodayString_ === 'function' ? getTodayString_() : new Date().toISOString().slice(0, 10)), end: (typeof getTodayString_ === 'function' ? getTodayString_() : new Date().toISOString().slice(0, 10)) };
+
+  let orders = [];
+  if (window.crmSnapshot?.dailyRows && window.crmSnapshot.dailyRows.length > 0) {
+    orders = window.crmSnapshot.dailyRows;
+  } else if (window.allReportRows && window.allReportRows.length > 0) {
+    orders = window.allReportRows;
+  } else if (window.allRows && window.allRows.length > 0) {
+    orders = window.allRows;
+  }
+
+  if (typeof filterDailyOrders === 'function') {
+    orders = filterDailyOrders(orders, range);
+  }
+
+  if (!orders || !orders.length) {
+    showToast(`Không có đơn hàng nào trong khoảng ngày ${range.start || ''} đến ${range.end || ''}!`, 'warning');
+    return;
+  }
+
+  const validOrders = orders.filter(r => r.trangThai !== 'Đã xóa' && ((r.tenKhach && String(r.tenKhach).trim()) || (r.sdtKhach && String(r.sdtKhach).trim())));
+  if (!validOrders.length) {
+    showToast('Không có đơn hàng nào có thông tin người nhận để gửi Viettel Post!', 'warning');
+    return;
+  }
+
+  const packages = (typeof groupOrdersByCustomer_ === 'function')
+    ? groupOrdersByCustomer_(validOrders)
+    : validOrders.map((o, i) => ({
+        key: 'pkg_' + i,
+        tenKhach: o.tenKhach || '',
+        sdtKhach: o.sdtKhach || '',
+        diaChi: o.diaChi || '',
+        maSPList: [o.maSP || ''],
+        tongGiaBan: Number(o.giaBan) || 0,
+        tongTienCOD: Number(o.tienCOD) || 0,
+        tongKhachCoc: Number(o.khachCoc) || 0,
+        tongKhoiLuong: Number(o.khoiLuong) || 300,
+        items: [o]
+      }));
+
+  const missingAddress = packages.filter(p => !p.diaChi || !String(p.diaChi).trim());
+  if (missingAddress.length > 0) {
+    const listNames = missingAddress.slice(0, 5).map(p => `${p.tenKhach || 'Khách'} (${(p.maSPList || []).join('+')})`).join(', ') + (missingAddress.length > 5 ? '...' : '');
+    if (!confirm(`Cảnh báo: Có ${missingAddress.length} kiện hàng chưa có Địa chỉ nhận hàng (${listNames})!\nViettel Post sẽ từ chối tạo đơn nếu thiếu địa chỉ.\n\nBạn có muốn tiếp tục xuất file Excel không?`)) {
+      return;
+    }
+  }
+
+  generateViettelExcelFile(packages, `ViettelPost_DonNgay_${range.start || 'today'}`);
+  showToast(`Đã xuất ${packages.length} kiện hàng Viettel Post từ ${validOrders.length} đơn hàng!`, 'success');
+}
+
 function exportViettelGroupedExcel() {
   const packages = window._currentViettelPackages || [];
   if (packages.length === 0) {
@@ -5554,8 +5665,8 @@ function generateViettelExcelFile(packages, filePrefix) {
         }
         if (codAmount <= 0) codAmount = 0;
 
-        // Nếu COD = 0 (khách đã CK đủ / Freeship) -> Cột I Giá trị hàng để 0 để Viettel Post không nhận 2tr7 và không tính phí bảo hiểm
-        const giaTriHang = codAmount > 0 ? (giaTriHangRaw || codAmount) : 0;
+        // Đảm bảo Cột I Giá trị hàng (*) luôn > 0 để tránh Viettel Post chặn lỗi thiếu trường bắt buộc
+        const giaTriHang = giaTriHangRaw > 0 ? giaTriHangRaw : (codAmount > 0 ? codAmount : 100000);
 
         // Quy tắc Viettel Post:
         // khi chọn 0 thì dịch vụ sẽ ăn là VTK và dịch vụ cộng thêm là GKN, PXD
@@ -5583,7 +5694,8 @@ function generateViettelExcelFile(packages, filePrefix) {
           tongTienCOD: codAmount
         });
 
-        const orderCode = pkg.maSPList.join('+') || `VS_${idx + 1}`;
+        let orderCode = pkg.maSPList.join('+') || `VS_${idx + 1}`;
+        if (orderCode.length > 40) orderCode = orderCode.slice(0, 40);
         const productName = `Phụ kiện kèm ${pkg.maSPList.join('+') || 'hàng hóa'}`;
         const loaiHang = pkg.loaiHangHoa || 'Bưu kiện';
         const tinhChat = pkg.tinhChatHangHoa || '';
@@ -5609,6 +5721,11 @@ function generateViettelExcelFile(packages, filePrefix) {
           finalAddr = [thonXom, phuongXa, quanHuyen, tinhThanh].filter(Boolean).join(', ');
         }
 
+        const packageWeight = (pkg.tongKhoiLuong && Number(pkg.tongKhoiLuong) > 0) ? Number(pkg.tongKhoiLuong) : 300;
+        const finalNote = (pkg.ghiChu && String(pkg.ghiChu).trim() && pkg.ghiChu !== 'CHO HÀNG XEM')
+          ? ('Cho xem hàng không cho thử - ' + String(pkg.ghiChu).trim())
+          : 'Cho xem hàng không cho thử';
+
         return [
           idx + 1,                                       // STT (Cột A)
           orderCode,                                     // Mã đơn hàng (Cột B)
@@ -5617,8 +5734,8 @@ function generateViettelExcelFile(packages, filePrefix) {
           finalAddr,                                     // Địa chỉ nhận (*) (Cột E)
           productName,                                   // Tên hàng hóa (*) (Cột F)
           1,                                             // Số lượng (Cột G)
-          pkg.tongKhoiLuong || 200,                      // Trọng lượng (gram) (*) (Cột H)
-          giaTriHang,                                    // Giá trị hàng (VND) (*) (Cột I)
+          packageWeight,                                 // Trọng lượng (gram) (*) (Cột H) - Mặc định 300g
+          giaTriHang,                                    // Giá trị hàng (VND) (*) (Cột I) - Luôn > 0
           codAmount,                                     // Tiền thu hộ COD (VND) (Cột J)
           loaiHang,                                      // Loại hàng hóa (*) (Cột K)
           tinhChat,                                      // Tính chất hàng hóa đặc biệt (Cột L)
@@ -5629,7 +5746,7 @@ function generateViettelExcelFile(packages, filePrefix) {
           1,                                             // Rộng (cm) (Cột Q)
           1,                                             // Cao (cm) (Cột R)
           payer,                                         // Người trả cước (Cột S)
-          (pkg.ghiChu && pkg.ghiChu !== 'CHO HÀNG XEM') ? pkg.ghiChu : 'Cho xem hàng không cho thử', // Yêu cầu khác (Cột T)
+          finalNote,                                     // Yêu cầu khác (Cột T) - Luôn có Cho xem hàng
           '',                                            // Thời gian hẹn lấy (Cột U)
           'Cả ngày'                                      // Thời gian giao (Cột V)
         ];
