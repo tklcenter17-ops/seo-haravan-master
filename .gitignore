@@ -4,9 +4,11 @@
 # Ignore toàn bộ workspace, chỉ track đúng thư mục cần
 /*
 !/seo/
+!/app_script_admin/
 !/.agents/
 !/.gitignore
 !/README.md
+
 
 # Bên trong .agents chỉ track skills/seo-haravan-injector
 /.agents/*
@@ -14,8 +16,15 @@
 /.agents/skills/*
 !/.agents/skills/seo-haravan-injector/
 
-# Ignore file nặng
+# Ignore file nặng & database
 *.zip
 *.rar
 *.tar.gz
+*.db
+*.db.gz
+*.sqlite
 node_modules/
+# Antigravity element annotations
+.antigravity/
+.ponytail-backup/
+.vercel/

@@ -1,0 +1,15 @@
+{
+  "name": "sales-admin-vps-api",
+  "version": "1.0.0",
+  "description": "Sales Admin Backend API running on VPS with SQLite & Google Sheets Sync",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}

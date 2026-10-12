@@ -1,0 +1,2501 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Admin | Quản lý bán hàng</title>
+  <meta name="description" content="Hệ thống quản lý bán hàng cao cấp - Sales Admin Dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+  window.__VIP_TIER_SETTINGS__ = {"tiers":[{"key":"diamond","label":"VIP Kim Cương","minLtv":100000000,"minOrders":30,"className":"vip-diamond"},{"key":"gold","label":"VIP Vàng","minLtv":50000000,"minOrders":15,"className":"vip-gold"},{"key":"silver","label":"VIP Bạc","minLtv":20000000,"minOrders":8,"className":"vip-silver"},{"key":"bronze","label":"VIP Đồng","minLtv":5000000,"minOrders":3,"className":"vip-bronze"}]};
+</script>
+
+<!-- ══════════════════════════════════════════
+     LOADING OVERLAY
+══════════════════════════════════════════ -->
+<div id="loading-overlay" class="loading-overlay">
+  <div class="loading-spinner">
+    <div class="spinner-ring"></div>
+    <div class="spinner-ring"></div>
+    <div class="spinner-ring"></div>
+    <p class="loading-text">Đang tải...</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════════ -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- ══════════════════════════════════════════
+     LOGIN PAGE
+══════════════════════════════════════════ -->
+<div id="login-page" class="login-page">
+  <div class="login-bg">
+    <div class="login-blob b1"></div>
+    <div class="login-blob b2"></div>
+    <div class="login-blob b3"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon"><i class="fas fa-store"></i></div>
+      <h1>Sales Admin</h1>
+      <p>Hệ thống quản lý bán hàng</p>
+    </div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="password-input"><i class="fas fa-lock"></i> Mật khẩu</label>
+        <div class="input-wrapper">
+          <input type="password" id="password-input" placeholder="Nhập mật khẩu..." autocomplete="current-password">
+          <button type="button" class="toggle-pass" onclick="togglePassword()">
+            <i class="fas fa-eye" id="eye-icon"></i>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn-login" id="login-btn">
+        <span>Đăng nhập</span>
+        <i class="fas fa-arrow-right"></i>
+      </button>
+      <p id="login-error" class="login-error hidden">
+        Mật khẩu không đúng!
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MAIN APP (hidden until logged in)
+══════════════════════════════════════════ -->
+<div id="app" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-icon-sm"><i class="fas fa-store"></i></div>
+        <span class="logo-text">SalesAdmin</span>
+      </div>
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Thu/mở sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">MENU CHÍNH</div>
+      <a href="#" class="nav-item active" onclick="switchPage('dashboard', this)" id="nav-dashboard">
+        <i class="fas fa-chart-pie"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('products', this)" id="nav-products">
+        <i class="fas fa-box-open"></i>
+        <span>Quản lý sản phẩm</span>
+        <span class="nav-badge" id="nav-badge-products">0</span>
+        <span class="nav-badge-stock" id="nav-badge-stock" title="Còn hàng trong kho"></span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('daily', this)" id="nav-daily">
+        <i class="fas fa-fire" style="color:#ff6b35;"></i>
+        <span>Đơn chốt theo ngày</span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('viettel_orders', this)" id="nav-viettel_orders">
+        <i class="fas fa-shipping-fast" style="color:#e02c1b;"></i>
+        <span>Tạo đơn Viettel</span>
+        <span class="nav-badge" id="nav-badge-viettel" style="background:#e02c1b; color:#fff; font-size:0.7rem; padding:1px 6px; border-radius:10px; margin-left:auto; display:none;">0</span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('liquidation', this)" id="nav-liquidation">
+        <i class="fas fa-tags" style="color:#34d399;"></i>
+        <span>THANH LÝ</span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('search', this)" id="nav-search">
+        <i class="fas fa-search"></i>
+        <span>Tra cứu MÃ SP</span>
+      </a>
+
+      <div class="nav-section-label">THỐNG KÊ</div>
+      <a href="#" class="nav-item" onclick="switchPage('stats', this)" id="nav-stats">
+        <i class="fas fa-chart-line"></i>
+        <span>Báo cáo doanh số</span>
+      </a>
+
+      <div class="nav-section-label">HỆ THỐNG</div>
+      <a href="#" class="nav-item" onclick="switchPage('system_audit', this)" id="nav-system_audit">
+        <i class="fas fa-stethoscope" style="color:#10b981;"></i>
+        <span>Kiểm tra hệ thống</span>
+        <span class="nav-badge-health" id="nav-badge-health">100</span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('activity', this)" id="nav-activity">
+        <i class="fas fa-history"></i>
+        <span>Nhật ký hoạt động</span>
+      </a>
+      <a href="#" class="nav-item" onclick="switchPage('settings', this)" id="nav-settings">
+        <i class="fas fa-sliders-h"></i>
+        <span>Cấu hình hệ thống</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar"><i class="fas fa-user-shield"></i></div>
+        <div class="user-info">
+          <span class="user-name">Admin</span>
+          <span class="user-role">Quản trị viên</span>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()" title="Đăng xuất">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="main-wrapper" id="main-wrapper">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="topbar-quick-search" placeholder="Tìm nhanh MÃ SP..." onkeydown="quickSearch(event)">
+        </div>
+        <!-- F10: COD badge -->
+        <div class="cod-topbar-pill" id="cod-topbar-pill" title="COD hôm nay cần thu" onclick="switchPage('products', document.getElementById('nav-products'))">
+          <i class="fas fa-motorcycle"></i>
+          <span>COD: <strong id="cod-topbar-amount">0 ₫</strong></span>
+        </div>
+        <!-- Cyberpunk Lo-Fi Floor ASMR Toggle Button -->
+        <button class="btn-lofi-toggle" id="btn-lofi-toggle" onclick="toggleLoFiFloorAsmr()" title="Bật/Tắt Lo-Fi Trading Floor ASMR">
+          <i class="fas fa-headphones" id="lofi-icon"></i>
+          <span class="lofi-label" id="lofi-label">Lo-Fi Floor</span>
+        </button>        <!-- Notification Bell Icon (Module 9) -->
+        <div class="topbar-notification" id="topbar-notification">
+          <button class="btn-notification" onclick="toggleNotificationDropdown(event)" title="Thông báo">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge hidden" id="notification-badge">0</span>
+          </button>
+          
+          <!-- Dropdown container -->
+          <div class="notification-dropdown hidden" id="notification-dropdown" onclick="event.stopPropagation()">
+            <div class="notification-header">
+              <h3>Thông báo</h3>
+              <button class="btn-mark-all" onclick="markAllNotificationsAsRead()">Đọc tất cả</button>
+            </div>
+            
+            <div class="notification-filters">
+              <select id="notification-filter-type" onchange="filterNotifications()">
+                <option value="">Tất cả loại cảnh báo</option>
+                <option value="wait_ck">Đơn chờ CK quá lâu</option>
+                <option value="late_ship">Đơn chưa giao đúng hẹn</option>
+                <option value="cod_reconcile">COD chưa đối soát</option>
+                <option value="call_back">Khách cần gọi lại</option>
+                <option value="low_stock">Sản phẩm sắp hết hàng</option>
+                <option value="late_task">Công việc trễ deadline</option>
+                <option value="rev_decrease">Doanh thu giảm</option>
+                <option value="vip_order">Khách VIP phát sinh đơn</option>
+                <option value="order_cancelled">Đơn bị hủy/hoàn</option>
+                <option value="backup_fail">Backup thất bại</option>
+              </select>
+            </div>
+            
+            <div class="notification-body" id="notification-body">
+              <div class="notification-empty">Đang tải thông báo...</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-theme-toggle" onclick="toggleTheme()" title="Đổi giao diện Sáng/Tối">
+          <i class="fas fa-moon" id="theme-toggle-icon"></i>
+        </button>
+        <button class="btn-refresh" onclick="refreshData()" title="Làm mới dữ liệu">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+        <div class="topbar-date">
+          <i class="fas fa-calendar-alt"></i>
+          <span id="current-date"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── PAGE: DASHBOARD ── -->
+    <main class="page-content" id="page-dashboard">
+
+      <!-- SHOP PULSE: NHỊP VẬN HÀNH TRỰC TIẾP -->
+      <section class="shop-pulse-container" id="shop-pulse-container">
+        <div class="shop-pulse-header">
+          <div class="shop-pulse-title-box">
+            <div class="pulse-indicator-dot" id="pulse-indicator-dot"></div>
+            <div>
+              <h2 class="shop-pulse-title"><i class="fas fa-wave-square"></i> Shop Pulse</h2>
+              <p class="shop-pulse-subtitle">Nhịp vận hành trực tiếp của shop hôm nay</p>
+            </div>
+          </div>
+          <div class="shop-pulse-status-badge" id="shop-pulse-badge">
+            <i class="fas fa-circle-check"></i> <span id="shop-pulse-status-text">Đang kết nối</span>
+          </div>
+        </div>
+
+        <div class="shop-pulse-grid">
+          <!-- VÒNG NHỊP CHÍNH -->
+          <div class="pulse-ring-card" id="pulse-ring-card">
+            <div class="pulse-radial-wrapper">
+              <svg class="pulse-radial-svg" viewBox="0 0 120 120">
+                <defs>
+                  <linearGradient id="pulse-grad-green" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#10b981" />
+                    <stop offset="100%" stop-color="#059669" />
+                  </linearGradient>
+                  <linearGradient id="pulse-grad-yellow" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f59e0b" />
+                    <stop offset="100%" stop-color="#d97706" />
+                  </linearGradient>
+                  <linearGradient id="pulse-grad-red" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#ef4444" />
+                    <stop offset="100%" stop-color="#dc2626" />
+                  </linearGradient>
+                  <linearGradient id="pulse-grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#8b5cf6" />
+                    <stop offset="100%" stop-color="#6d28d9" />
+                  </linearGradient>
+                </defs>
+                <circle class="pulse-radial-bg" cx="60" cy="60" r="50" />
+                <circle class="pulse-radial-progress" id="pulse-radial-bar" cx="60" cy="60" r="50" />
+              </svg>
+              <div class="pulse-radial-center">
+                <span class="pulse-center-sub">Sức khỏe</span>
+                <strong class="pulse-center-val" id="pulse-center-health">95</strong>
+                <span class="pulse-center-label" id="pulse-center-target">Mục tiêu: 0%</span>
+              </div>
+            </div>
+
+            <!-- 6 Chỉ số trung tâm -->
+            <div class="pulse-metrics-cluster">
+              <div class="pulse-metric-item">
+                <span class="pm-label">Doanh thu chốt</span>
+                <strong class="pm-val" id="pulse-val-revenue">0 ₫</strong>
+              </div>
+              <div class="pulse-metric-item">
+                <span class="pm-label">Thực tế đã thu</span>
+                <strong class="pm-val" id="pulse-val-collected" style="color:#10b981;">0 ₫</strong>
+              </div>
+              <div class="pulse-metric-item">
+                <span class="pm-label">COD ngoài</span>
+                <strong class="pm-val" id="pulse-val-cod" style="color:#f59e0b;">0 ₫</strong>
+              </div>
+              <div class="pulse-metric-item">
+                <span class="pm-label">Việc cần xử lý</span>
+                <strong class="pm-val" id="pulse-val-actions" style="color:#ef4444;">0 việc</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- DÒNG SỰ KIỆN TRỰC TIẾP -->
+          <div class="pulse-events-card">
+            <div class="pulse-events-header">
+              <h3><i class="fas fa-bolt-lightning"></i> Dòng sự kiện trực tiếp</h3>
+              <span class="pulse-live-badge"><span class="live-dot"></span> LIVE</span>
+            </div>
+            <div class="pulse-events-feed" id="pulse-events-feed">
+              <div class="pulse-event-empty">Đang đồng bộ sự kiện mới nhất...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI Insight Summary Card -->
+      <div class="ai-summary-card" id="ai-summary-card">
+        <div class="ai-summary-header">
+          <div class="ai-logo"><i class="fas fa-robot"></i> <span>TRỢ LÝ BÁN HÀNG AI INSIGHTS</span></div>
+          <span class="ai-badge"><span class="pulse-dot"></span> AI INSIGHTS</span>
+        </div>
+        <div class="ai-summary-body">
+          <div class="ai-summary-text" id="ai-summary-text">
+            Đang phân tích dữ liệu bán hàng hôm nay...
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-intelligence-grid">
+        <div class="business-health-card">
+          <div class="business-health-header">
+            <div>
+              <h3><i class="fas fa-heart-pulse"></i> Business Health</h3>
+              <p>Chỉ số sức khỏe công ty tháng này</p>
+            </div>
+            <span class="business-health-badge" id="business-health-label">Đang tính</span>
+          </div>
+          <div class="business-health-body">
+            <div class="business-health-gauge" id="business-health-gauge">
+              <svg class="health-ring-svg" viewBox="0 0 100 100">
+                <defs>
+                  <linearGradient id="health-glow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#06b6d4" />
+                    <stop offset="50%" stop-color="#3b82f6" />
+                    <stop offset="100%" stop-color="#7c3aed" />
+                  </linearGradient>
+                  <filter id="health-glow-filter" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#3b82f6" flood-opacity="0.5"/>
+                  </filter>
+                </defs>
+                <circle class="health-ring-bg" cx="50" cy="50" r="40" />
+                <circle class="health-ring-active" cx="50" cy="50" r="40" id="health-ring-active" />
+              </svg>
+              <div class="business-health-gauge-inner">
+                <strong id="business-health-score">0</strong>
+                <span>/100</span>
+              </div>
+            </div>
+            <div class="business-health-factors" id="business-health-factors">
+              <div class="profile-empty-line">Đang đọc dữ liệu...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shop-ai-card">
+          <div class="shop-ai-header">
+            <div>
+              <h3><i class="fas fa-wand-magic-sparkles"></i> AI Gemini Cho Chủ Shop</h3>
+              <p>Hỏi trực tiếp từ dữ liệu sheet</p>
+            </div>
+            <span class="ai-badge">GEMINI</span>
+          </div>
+          <div class="shop-ai-quick">
+            <button type="button" onclick="askShopAiQuick('Doanh thu tháng này thế nào?')">Doanh thu tháng này thế nào?</button>
+            <button type="button" onclick="askShopAiQuick('Doanh thu hôm nay thế nào?')">Doanh thu hôm nay thế nào?</button>
+            <button type="button" onclick="askShopAiQuick('Tại sao doanh thu giảm?')">Tại sao doanh thu giảm?</button>
+            <button type="button" onclick="askShopAiQuick('Sản phẩm nào bán tốt nhất?')">Sản phẩm nào bán tốt nhất?</button>
+            <button type="button" onclick="askShopAiQuick('Danh sách khách cần gọi lại?')">Danh sách khách cần gọi lại?</button>
+          </div>
+          <div class="shop-ai-chat-window" id="shop-ai-chat-window">
+            <div class="shop-ai-message assistant">Nhập câu hỏi hoặc chọn gợi ý để AI phân tích dữ liệu sheet.</div>
+          </div>
+          <form class="shop-ai-input-row" onsubmit="askShopAiFromInput(event)">
+            <input id="shop-ai-input" type="text" placeholder="VD: Doanh thu hôm nay thế nào?">
+            <button type="submit" id="shop-ai-send"><i class="fas fa-paper-plane"></i></button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Stats Cards Row 1 -->
+      <div class="stats-grid">
+        <div class="stat-card gradient-blue">
+          <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="stat-body">
+            <p class="stat-label">Tổng doanh thu</p>
+            <h2 class="stat-value" id="stat-doanh-thu">0 ₫</h2>
+            <span class="stat-sub" id="stat-tong-sp">0 sản phẩm</span>
+          </div>
+          <div class="sparkline-container">
+            <canvas id="sparkline-revenue"></canvas>
+          </div>
+        </div>
+        <div class="stat-card gradient-green">
+          <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+          <div class="stat-body">
+            <p class="stat-label">Lợi nhuận ròng</p>
+            <h2 class="stat-value" id="stat-loi-nhuan-rong">0 ₫</h2>
+            <span class="stat-sub" id="stat-loi-label">+Lợi nhuận dương: 0 ₫</span>
+          </div>
+          <div class="sparkline-container">
+            <canvas id="sparkline-profit"></canvas>
+          </div>
+        </div>
+        <div class="stat-card gradient-red">
+          <div class="stat-icon"><i class="fas fa-chart-pie"></i></div>
+          <div class="stat-body">
+            <p class="stat-label">Tổng lỗ</p>
+            <h2 class="stat-value" id="stat-tong-lo">0 ₫</h2>
+            <span class="stat-sub" id="stat-goc-hang">Giá vốn: 0 ₫</span>
+          </div>
+          <div class="sparkline-container">
+            <canvas id="sparkline-loss"></canvas>
+          </div>
+        </div>
+        <div class="stat-card gradient-purple">
+          <div class="stat-icon"><i class="fas fa-boxes"></i></div>
+          <div class="stat-body">
+            <p class="stat-label">Kho hàng</p>
+            <h2 class="stat-value" id="stat-con-hang">0</h2>
+            <span class="stat-sub">Còn hàng trong kho</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Cards Row 2: Trạng thái sản phẩm -->
+      <div class="stats-grid stats-grid-sm" style="grid-template-columns:repeat(6,1fr);">
+        <div class="stat-card-mini">
+          <div class="mini-icon" style="color:var(--success);"><i class="fas fa-circle"></i></div>
+          <div>
+            <p class="mini-label">Còn hàng</p>
+            <h3 class="mini-value text-success" id="stat-con-hang-mini">0</h3>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="mini-icon" style="color:var(--primary-light);"><i class="fas fa-check-circle"></i></div>
+          <div>
+            <p class="mini-label">Đã bán</p>
+            <h3 class="mini-value" style="color:var(--primary-light)" id="stat-da-ban">0</h3>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="mini-icon text-warning"><i class="fas fa-clock"></i></div>
+          <div>
+            <p class="mini-label">Đợi CK</p>
+            <h3 class="mini-value text-warning" id="stat-doi-ck">0</h3>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="mini-icon text-warning"><i class="fas fa-motorcycle"></i></div>
+          <div>
+            <p class="mini-label">Đơn COD</p>
+            <h3 class="mini-value" id="stat-cod">0</h3>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="mini-icon text-info"><i class="fas fa-shipping-fast"></i></div>
+          <div>
+            <p class="mini-label">Freeship</p>
+            <h3 class="mini-value" id="stat-freeship">0</h3>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <div class="mini-icon text-danger"><i class="fas fa-trash-alt"></i></div>
+          <div>
+            <p class="mini-label">Đã xóa</p>
+            <h3 class="mini-value text-danger" id="stat-da-xoa">0</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-grid">
+        <div class="chart-card chart-large">
+          <div class="chart-header">
+            <h3><i class="fas fa-chart-area"></i> Doanh thu & Lợi nhuận theo ngày</h3>
+            <div class="chart-legend">
+              <span class="legend-dot blue"></span><span>Doanh thu</span>
+              <span class="legend-dot green"></span><span>Lợi nhuận</span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chart-revenue" height="280"></canvas>
+          </div>
+        </div>
+        <div class="chart-card chart-small">
+          <div class="chart-header">
+            <h3><i class="fas fa-chart-pie"></i> Trạng thái hàng</h3>
+          </div>
+          <div class="chart-body chart-donut-body">
+            <canvas id="chart-status" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3><i class="fas fa-chart-bar"></i> Số đơn theo ngày</h3>
+          </div>
+          <div class="chart-body">
+            <canvas id="chart-orders" height="200"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3><i class="fas fa-truck"></i> Hình thức giao hàng</h3>
+          </div>
+          <div class="chart-body chart-donut-body">
+            <canvas id="chart-delivery" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid customer-lifetime-grid">
+        <div class="chart-card full-width">
+          <div class="chart-header">
+            <h3><i class="fas fa-users-line"></i> Customer Lifetime Dashboard</h3>
+            <div class="chart-legend">
+              <span class="legend-dot green"></span><span>Khách mới</span>
+              <span class="legend-dot blue"></span><span>Khách quay lại</span>
+              <span class="legend-dot red"></span><span>Khách mất</span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chart-customer-lifetime" height="260"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIDGETS SECTION -->
+      <div class="dashboard-widgets-grid">
+        <!-- F9: GOAL TRACKER -->
+        <div class="goal-tracker-card" id="goal-tracker-card" style="margin-top:0;">
+          <div class="goal-tracker-header">
+            <h3><i class="fas fa-bullseye" style="color:#818cf8;"></i> Mục tiêu doanh thu</h3>
+            <div class="goal-actions">
+              <button class="btn-goal-edit" onclick="openGoalModal()"><i class="fas fa-sliders-h"></i> Đặt mục tiêu</button>
+              <button class="btn-goal-edit" onclick="openVipTierModal()"><i class="fas fa-crown"></i> Hạng VIP</button>
+            </div>
+          </div>
+          <div class="goal-items">
+            <div class="goal-item">
+              <div class="goal-item-label">🌅 Hôm nay <span class="goal-val" id="goal-daily-val">— / — ₫</span></div>
+              <div class="goal-bar-wrap"><div class="goal-bar daily" id="goal-bar-daily" style="width:0%"></div></div>
+              <div class="goal-pct" id="goal-daily-pct">Chưa đặt mục tiêu</div>
+            </div>
+            <div class="goal-item">
+              <div class="goal-item-label">📅 Tháng này <span class="goal-val" id="goal-monthly-val">— / — ₫</span></div>
+              <div class="goal-bar-wrap"><div class="goal-bar monthly" id="goal-bar-monthly" style="width:0%"></div></div>
+              <div class="goal-pct" id="goal-monthly-pct">Chưa đặt mục tiêu</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOP CUSTOMERS TODAY -->
+        <div class="top-customers-card">
+          <div class="top-customers-header">
+            <h3><i class="fas fa-crown" style="color:gold;"></i> Top khách hàng hôm nay</h3>
+          </div>
+          <div class="top-customers-list" id="top-customers-today-list">
+            <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.85rem;">Hôm nay chưa có đơn chốt</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+
+    <!-- ── PAGE: PRODUCTS ── -->
+    <main class="page-content hidden" id="page-products">
+
+      <!-- Toolbar -->
+      <div class="page-toolbar">
+        <div class="toolbar-left">
+          <h2 class="page-title">Quản lý sản phẩm</h2>
+          <span class="record-count" id="record-count-label">0 bản ghi</span>
+        </div>
+        <div class="toolbar-right">
+          <!-- F11: Export CSV -->
+          <button class="btn-export-csv" onclick="exportToCSV()" title="Xuất dữ liệu đang lọc ra file CSV">
+            <i class="fas fa-file-csv"></i> Xuất CSV
+          </button>
+          <button class="btn btn-primary" onclick="openAddModal()">
+            <i class="fas fa-plus"></i> Thêm sản phẩm
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="filter-search-input" placeholder="Tìm mã SP, tên khách hàng..." oninput="applyFilters()">
+        </div>
+        <select id="filter-trang-thai" onchange="applyFilters()" class="filter-select">
+          <option value="">Tất cả trạng thái</option>
+          <option value="Còn hàng">Còn hàng</option>
+          <option value="Đã bán">Đã bán</option>
+          <option value="Đợi CK">Đợi CK</option>
+          <option value="Đã xóa">Đã xóa để làm lại</option>
+        </select>
+        <select id="filter-hinh-thuc" onchange="applyFilters()" class="filter-select">
+          <option value="">Tất cả hình thức</option>
+          <option value="COD">COD</option>
+          <option value="Freeship">Freeship</option>
+        </select>
+        <input type="date" id="filter-date-from" onchange="applyFilters()" class="filter-date" title="Từ ngày">
+        <input type="date" id="filter-date-to" onchange="applyFilters()" class="filter-date" title="Đến ngày">
+        <button class="btn btn-ghost btn-sm" onclick="clearFilters()">
+          <i class="fas fa-times"></i> Xóa lọc
+        </button>
+      </div>
+
+      <!-- Column Toggles -->
+      <div class="column-toggle-bar">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-right: 10px;">ẨN/HIỆN CỘT:</span>
+        <label class="checkbox-label"><input type="checkbox" id="toggle-col-sdt" onchange="updateColumnVisibility()" checked> SĐT</label>
+        <label class="checkbox-label"><input type="checkbox" id="toggle-col-khoiluong" onchange="updateColumnVisibility()" checked> Khối lượng</label>
+        <label class="checkbox-label"><input type="checkbox" id="toggle-col-ghichu" onchange="updateColumnVisibility()" checked> Ghi chú</label>
+        <label class="checkbox-label"><input type="checkbox" id="toggle-col-linktiktok" onchange="updateColumnVisibility()" checked> Link TikTok</label>
+        <label class="checkbox-label"><input type="checkbox" id="toggle-col-giavon" onchange="updateColumnVisibility()" checked> Giá vốn</label>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrapper">
+        <table class="data-table" id="products-table">
+          <thead>
+            <tr>
+              <th class="th-sort" onclick="sortTable('maSP')">MÃ SP <i class="fas fa-sort"></i></th>
+              <th class="th-sort" onclick="sortTable('giaBan')">Giá bán <i class="fas fa-sort"></i></th>
+              <th class="th-sort col-giavon" onclick="sortTable('giaVon')">Giá vốn <i class="fas fa-sort"></i></th>
+              <th class="th-sort" onclick="sortTable('tienLoi')">Tiền lời <i class="fas fa-sort"></i></th>
+              <th>Khách / Sale</th>
+              <th class="col-sdt">SĐT</th>
+              <th class="th-sort" onclick="sortTable('ngayChot')">Ngày chốt <i class="fas fa-sort"></i></th>
+              <th>Trạng thái</th>
+              <th>Giao hàng</th>
+              <th class="th-sort" onclick="sortTable('khachCoc')">Khách cọc <i class="fas fa-sort"></i></th>
+              <th class="th-sort col-khoiluong" onclick="sortTable('khoiLuong')">Khối lượng <i class="fas fa-sort"></i></th>
+              <th class="col-ghichu">Ghi chú</th>
+              <th class="col-linktiktok">Link TikTok</th>
+              <th style="min-width: 100px;">Tạo đơn</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="products-tbody">
+            <!-- rows injected by JS -->
+          </tbody>
+          <tfoot id="products-tfoot" style="background: rgba(99,102,241,0.06); font-weight: bold; border-top: 2px solid var(--border);"></tfoot>
+        </table>
+        <div id="empty-state-products" class="empty-state hidden">
+          <div class="empty-icon"><i class="fas fa-box-open"></i></div>
+          <h3>Chưa có dữ liệu</h3>
+          <p>Nhấn <strong>Thêm sản phẩm</strong> để bắt đầu quản lý</p>
+          <button class="btn btn-primary" onclick="openAddModal()">
+            <i class="fas fa-plus"></i> Thêm ngay
+          </button>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-bar" id="pagination-bar">
+        <div class="pagination-info" id="pagination-info">Hiển thị 0/0</div>
+        <div class="pagination-controls">
+          <button class="page-btn" id="page-first" onclick="goToPage(1)"><i class="fas fa-angle-double-left"></i></button>
+          <button class="page-btn" id="page-prev" onclick="prevPage()"><i class="fas fa-angle-left"></i></button>
+          <div class="page-numbers" id="page-numbers"></div>
+          <button class="page-btn" id="page-next" onclick="nextPage()"><i class="fas fa-angle-right"></i></button>
+          <button class="page-btn" id="page-last" onclick="goToPage(totalPages)"><i class="fas fa-angle-double-right"></i></button>
+        </div>
+        <div class="page-size-picker">
+          <select id="page-size-select" onchange="changePageSize(this.value)">
+            <option value="10">10/trang</option>
+            <option value="20">20/trang</option>
+            <option value="50">50/trang</option>
+          </select>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── PAGE: LIQUIDATION ── -->
+    <main class="page-content hidden" id="page-liquidation">
+      <div class="page-toolbar">
+        <div class="toolbar-left">
+          <h2 class="page-title">Đơn chốt THANH LÝ</h2>
+          <span class="record-count" id="liquidation-count-label">0 bản ghi</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-ghost btn-sm" onclick="loadLiquidationRows()">
+            <i class="fas fa-sync-alt"></i> Làm mới
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="filter-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="liquidation-search-input" placeholder="Tìm mã SP, sản phẩm, khách hàng..." oninput="applyLiquidationFilters()">
+        </div>
+        <select id="liquidation-status-filter" onchange="applyLiquidationFilters()" class="filter-select">
+          <option value="">Tất cả trạng thái</option>
+          <option value="Đã bán">Đã bán</option>
+          <option value="Đợi CK">Đợi CK</option>
+          <option value="Còn hàng">Còn hàng</option>
+          <option value="Đã xóa">Đã xóa</option>
+        </select>
+        <input type="date" id="liquidation-date-from" onchange="applyLiquidationFilters()" class="filter-date" title="Từ ngày">
+        <input type="date" id="liquidation-date-to" onchange="applyLiquidationFilters()" class="filter-date" title="Đến ngày">
+        <button class="btn btn-ghost btn-sm" onclick="clearLiquidationFilters()">
+          <i class="fas fa-times"></i> Xóa lọc
+        </button>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table" id="liquidation-table">
+          <thead>
+            <tr>
+              <th class="th-sort" onclick="sortLiquidationTable('ngayChot')">Ngày <i class="fas fa-sort"></i></th>
+              <th class="th-sort" onclick="sortLiquidationTable('maSP')">Mã/Sản phẩm <i class="fas fa-sort"></i></th>
+              <th>Khách hàng</th>
+              <th>SĐT</th>
+              <th class="th-sort" onclick="sortLiquidationTable('giaBan')">Doanh thu <i class="fas fa-sort"></i></th>
+              <th>Giá vốn</th>
+              <th>Tiền lời</th>
+              <th>Trạng thái</th>
+              <th>Loại/Sheet</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody id="liquidation-tbody"></tbody>
+        </table>
+        <div id="empty-state-liquidation" class="empty-state hidden">
+          <div class="empty-icon"><i class="fas fa-tags"></i></div>
+          <h3>Chưa có dữ liệu THANH LÝ</h3>
+          <p>Hệ thống sẽ tự đọc header động khi sheet có dữ liệu.</p>
+        </div>
+      </div>
+
+      <div class="pagination-bar">
+        <div class="pagination-info" id="liquidation-pagination-info">Hiển thị 0/0</div>
+        <div class="pagination-controls">
+          <button class="page-btn" id="liquidation-page-first" onclick="goToLiquidationPage(1)"><i class="fas fa-angle-double-left"></i></button>
+          <button class="page-btn" id="liquidation-page-prev" onclick="goToLiquidationPage(liquidationPage - 1)"><i class="fas fa-angle-left"></i></button>
+          <div class="page-numbers" id="liquidation-page-numbers"></div>
+          <button class="page-btn" id="liquidation-page-next" onclick="goToLiquidationPage(liquidationPage + 1)"><i class="fas fa-angle-right"></i></button>
+          <button class="page-btn" id="liquidation-page-last" onclick="goToLiquidationPage(liquidationTotalPages)"><i class="fas fa-angle-double-right"></i></button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── PAGE: SEARCH ── -->
+    <main class="page-content hidden" id="page-search">
+      <div class="search-page-wrapper">
+        <div class="search-hero">
+          <h2><i class="fas fa-search"></i> Tra cứu thông tin đơn hàng</h2>
+          <p>Nhập Mã SP, Tên khách hàng hoặc Số điện thoại để tra cứu</p>
+          <div class="search-big-input">
+            <i class="fas fa-barcode"></i>
+            <input type="text" id="search-masp-input" placeholder="Nhập Mã SP, Tên khách hoặc SĐT..." onkeydown="searchMaSPOnEnter(event)">
+            <button class="btn btn-primary" onclick="doSearchMaSP()">
+              <i class="fas fa-search"></i> Tra cứu
+            </button>
+          </div>
+        </div>
+        <div id="search-results" class="search-results"></div>
+      </div>
+    </main>
+
+    <!-- ── PAGE: STATS ── -->
+    <main class="page-content hidden" id="page-stats">
+      <!-- Bộ lọc thời gian tổng thể của Thống kê -->
+      <div class="stats-filter-bar">
+        <div class="stats-filter-options">
+          <button class="stats-filter-btn active" onclick="changeStatsPeriod('month', this)">Tháng này</button>
+          <button class="stats-filter-btn" onclick="changeStatsPeriod('today', this)">Hôm nay</button>
+          <button class="stats-filter-btn" onclick="changeStatsPeriod('7days', this)">7 ngày qua</button>
+          <button class="stats-filter-btn" onclick="changeStatsPeriod('30days', this)">30 ngày qua</button>
+          <button class="stats-filter-btn" onclick="changeStatsPeriod('year', this)">Năm nay</button>
+          <button class="stats-filter-btn" onclick="changeStatsPeriod('custom', this)">Tùy chọn</button>
+        </div>
+        <div class="stats-custom-range hidden" id="stats-custom-range-inputs">
+          <div class="date-input-wrap">
+            <label>Từ:</label>
+            <input type="date" id="stats-date-start" onchange="applyCustomPeriod()">
+          </div>
+          <div class="date-input-wrap">
+            <label>Đến:</label>
+            <input type="date" id="stats-date-end" onchange="applyCustomPeriod()">
+          </div>
+        </div>
+        <div class="stats-extra-filters">
+          <input type="text" id="stats-customer-filter" class="stats-filter-input" placeholder="Khách hàng / SĐT / mã SP" oninput="debouncedLoadAdvancedStats()">
+          <select id="stats-status-filter" class="stats-filter-input" onchange="loadAdvancedStats()">
+            <option value="">Tất cả trạng thái</option>
+            <option value="Đã bán">Đã bán</option>
+            <option value="Đợi CK">Đợi CK</option>
+            <option value="Còn hàng">Còn hàng</option>
+            <option value="Đã xóa">Đã xóa</option>
+          </select>
+          <select id="stats-sheet-filter" class="stats-filter-input" onchange="loadAdvancedStats()">
+            <option value="">Tất cả sheet</option>
+            <option value="SalesData">SalesData</option>
+            <option value="Mã V">Mã V</option>
+            <option value="THANH LÝ">THANH LÝ</option>
+          </select>
+          <select id="stats-order-type-filter" class="stats-filter-input" onchange="loadAdvancedStats()">
+            <option value="">Tất cả loại đơn</option>
+            <option value="COD">COD</option>
+            <option value="Freeship">Freeship</option>
+            <option value="Mã V">Mã V</option>
+            <option value="THANH LÝ">THANH LÝ</option>
+          </select>
+        </div>
+        <span class="stats-period-label" id="stats-period-display-label">Đang tải...</span>
+      </div>
+
+      <!-- Sub Navigation Tabs -->
+      <div class="stats-tabs-nav">
+        <button class="stats-tab-nav-btn active" onclick="switchStatsTab('overview', this)">
+          <i class="fas fa-chart-pie"></i> <span>Tổng quan</span>
+        </button>
+        <button class="stats-tab-nav-btn" onclick="switchStatsTab('revenue', this)">
+          <i class="fas fa-money-bill-wave"></i> <span>Doanh thu & Lợi nhuận</span>
+        </button>
+        <button class="stats-tab-nav-btn" onclick="switchStatsTab('products', this)">
+          <i class="fas fa-users-cog"></i> <span>Sản phẩm & Khách hàng</span>
+        </button>
+        <button class="stats-tab-nav-btn" onclick="switchStatsTab('export', this)">
+          <i class="fas fa-file-export"></i> <span>Xuất báo cáo</span>
+        </button>
+      </div>
+
+      <!-- Content Sections -->
+      <!-- SECTION 1: OVERVIEW -->
+      <div class="stats-tab-content" id="stats-tab-overview">
+        <!-- Grid các thẻ KPI với chỉ số so sánh kỳ trước -->
+        <div class="stats-kpi-grid">
+          <div class="stats-kpi-card">
+            <div class="kpi-icon color-blue"><i class="fas fa-wallet"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-title">Doanh thu</span>
+              <h2 class="kpi-value" id="kpi-revenue">0 ₫</h2>
+              <span class="kpi-sub" id="kpi-revenue-sub">so với kỳ trước: --</span>
+            </div>
+          </div>
+          <div class="stats-kpi-card">
+            <div class="kpi-icon color-green"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-title">Lợi nhuận ròng</span>
+              <h2 class="kpi-value" id="kpi-profit">0 ₫</h2>
+              <span class="kpi-sub" id="kpi-profit-sub">so với kỳ trước: --</span>
+            </div>
+          </div>
+          <div class="stats-kpi-card">
+            <div class="kpi-icon color-purple"><i class="fas fa-shopping-cart"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-title">Đơn hàng</span>
+              <h2 class="kpi-value" id="kpi-orders">0 đơn</h2>
+              <span class="kpi-sub" id="kpi-orders-sub">so với kỳ trước: --</span>
+            </div>
+          </div>
+          <div class="stats-kpi-card">
+            <div class="kpi-icon color-orange"><i class="fas fa-calculator"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-title">Giá trị TB đơn (AOV)</span>
+              <h2 class="kpi-value" id="kpi-aov">0 ₫</h2>
+              <span class="kpi-sub" id="kpi-aov-sub">so với kỳ trước: --</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-kpi-grid stats-kpi-grid-3" style="margin-top:16px;">
+          <div class="stats-kpi-card-mini">
+            <span class="kpi-mini-label">Khách hàng có đơn</span>
+            <div class="kpi-mini-value" id="kpi-customers">0</div>
+          </div>
+          <div class="stats-kpi-card-mini">
+            <span class="kpi-mini-label">Sản phẩm đã bán</span>
+            <div class="kpi-mini-value" id="kpi-sold-products">0</div>
+          </div>
+          <div class="stats-kpi-card-mini">
+            <span class="kpi-mini-label">Sản phẩm Đợi chuyển khoản</span>
+            <div class="kpi-mini-value" id="kpi-pending-products">0</div>
+          </div>
+        </div>
+
+        <div class="revenue-insight-grid">
+          <div class="revenue-insight-card">
+            <span>Khách doanh thu cao nhất</span>
+            <strong id="insight-best-customer">—</strong>
+          </div>
+          <div class="revenue-insight-card">
+            <span>Ngày bán tốt nhất</span>
+            <strong id="insight-best-day">—</strong>
+          </div>
+          <div class="revenue-insight-card">
+            <span>Sheet đóng góp cao nhất</span>
+            <strong id="insight-best-sheet">—</strong>
+          </div>
+          <div class="revenue-insight-card">
+            <span>Đơn cần kiểm tra</span>
+            <strong id="insight-quality-issues">0</strong>
+          </div>
+        </div>
+
+        <!-- Biểu đồ Doanh thu & Lợi nhuận kỳ hiện tại -->
+        <div class="chart-card" style="margin-top:20px;">
+          <div class="chart-header">
+            <h3><i class="fas fa-chart-area"></i> Biểu đồ tăng trưởng Doanh thu & Lợi nhuận</h3>
+            <div class="chart-legend">
+              <span class="legend-dot blue"></span><span>Doanh thu</span>
+              <span class="legend-dot green"></span><span>Lợi nhuận</span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chart-revenue-advanced" height="320"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2: REVENUE & PROFIT -->
+      <div class="stats-tab-content hidden" id="stats-tab-revenue">
+        <div class="stats-row">
+          <div class="chart-card full-width">
+            <div class="chart-header">
+              <h3><i class="fas fa-chart-bar"></i> Phân tích chi tiết Doanh thu & Lợi nhuận</h3>
+            </div>
+            <div class="chart-body">
+              <canvas id="chart-revenue-profit-bar" height="280"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng thống kê chi tiết -->
+        <div class="table-card" style="margin-top:20px;">
+          <div class="table-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h3><i class="fas fa-list-alt"></i> Bảng số liệu chi tiết</h3>
+            <div class="stats-table-view-toggle">
+              <button class="stats-view-btn active" id="btn-view-day" onclick="changeStatsTableView('day')">Theo Ngày</button>
+              <button class="stats-view-btn" id="btn-view-week" onclick="changeStatsTableView('week')">Theo Tuần</button>
+              <button class="stats-view-btn" id="btn-view-month" onclick="changeStatsTableView('month')">Theo Tháng</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table" id="stats-table-daily">
+              <thead>
+                <tr>
+                  <th id="th-stats-time" style="width: 25%;">Thời gian</th>
+                  <th>Số đơn</th>
+                  <th>Doanh thu</th>
+                  <th>Giá vốn (Vốn)</th>
+                  <th>Khách cọc (Cọc)</th>
+                  <th>Tiền COD</th>
+                  <th>Tiền lời (Lãi)</th>
+                </tr>
+              </thead>
+              <tbody id="stats-table-daily-tbody">
+                <!-- Injected via JS -->
+              </tbody>
+              <tfoot id="stats-table-daily-tfoot" style="background: rgba(99,102,241,0.1); font-weight: bold; border-top: 2px solid var(--border);">
+                <!-- Injected via JS -->
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3: PRODUCTS & CUSTOMERS -->
+      <div class="stats-tab-content hidden" id="stats-tab-products">
+        <div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fas fa-crown" style="color:gold;"></i> Top 10 sản phẩm bán chạy nhất</h3>
+            </div>
+            <div class="chart-body" style="height:320px;">
+              <canvas id="chart-top-products" height="300"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fas fa-user-friends" style="color:var(--primary-light);"></i> Top 10 khách hàng chi tiêu nhiều nhất</h3>
+            </div>
+            <div class="chart-body" style="height:320px;">
+              <canvas id="chart-top-customers" height="300"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-grid" style="grid-template-columns: 1fr 1fr; margin-top:20px;">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fas fa-truck"></i> Cơ cấu hình thức giao dịch</h3>
+            </div>
+            <div class="chart-body chart-donut-body" style="height:250px;">
+              <canvas id="chart-stats-delivery" height="200"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fas fa-info-circle"></i> Tình trạng sản phẩm chốt</h3>
+            </div>
+            <div class="chart-body chart-donut-body" style="height:250px;">
+              <canvas id="chart-stats-status" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="revenue-tables-grid">
+          <div class="table-card">
+            <div class="table-card-header">
+              <h3><i class="fas fa-users"></i> Doanh thu theo khách hàng</h3>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table compact-table">
+                <thead>
+                  <tr>
+                    <th>Khách hàng</th>
+                    <th>SĐT</th>
+                    <th>Hạng</th>
+                    <th>Tags</th>
+                    <th>Số đơn</th>
+                    <th>Doanh thu</th>
+                    <th>AOV</th>
+                    <th>Sheet</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-customers-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-card-header">
+              <h3><i class="fas fa-layer-group"></i> Đóng góp theo sheet</h3>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table compact-table">
+                <thead>
+                  <tr>
+                    <th>Sheet</th>
+                    <th>Số đơn</th>
+                    <th>Khách</th>
+                    <th>Doanh thu</th>
+                    <th>AOV</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-sheets-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-card" style="margin-top:20px;">
+          <div class="table-card-header">
+            <h3><i class="fas fa-clipboard-list"></i> Đơn cần kiểm tra lại vì thiếu dữ liệu</h3>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table compact-table">
+              <thead>
+                <tr>
+                  <th>Sheet</th>
+                  <th>Dòng</th>
+                  <th>Mã/Sản phẩm</th>
+                  <th>Khách hàng</th>
+                  <th>Ngày</th>
+                  <th>Doanh thu</th>
+                  <th>Vấn đề</th>
+                </tr>
+              </thead>
+              <tbody id="stats-quality-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 4: EXPORT REPORT -->
+      <div class="stats-tab-content hidden" id="stats-tab-export">
+        <div class="export-options-card">
+          <div class="export-info-text">
+            <h3><i class="fas fa-file-invoice-dollar" style="color:var(--success);"></i> Trình xuất báo cáo doanh số chuyên nghiệp</h3>
+            <p>Hệ thống tự động biên soạn báo cáo bán hàng dựa theo cấu hình bộ lọc thời gian hiện tại của bạn.</p>
+          </div>
+
+          <div class="export-grid">
+            <div class="export-card" onclick="exportStatsReport('excel')">
+              <div class="export-icon-lg excel"><i class="fas fa-file-excel"></i></div>
+              <h4>Xuất Báo cáo Excel</h4>
+              <p>Tải xuống tệp Excel đầy đủ định dạng số liệu, các dòng chốt, tổng kết doanh thu và lợi nhuận.</p>
+              <button class="btn-export-action">Tải Excel (.xlsx)</button>
+            </div>
+            <div class="export-card" onclick="exportStatsReport('csv')">
+              <div class="export-icon-lg csv"><i class="fas fa-file-csv"></i></div>
+              <h4>Xuất Dữ liệu CSV</h4>
+              <p>Tải file CSV nhẹ, thích hợp để import vào các hệ thống kế toán hoặc BI phân tích khác.</p>
+              <button class="btn-export-action">Tải CSV (.csv)</button>
+            </div>
+            <div class="export-card" onclick="exportStatsReport('pdf')">
+              <div class="export-icon-lg pdf"><i class="fas fa-file-pdf"></i></div>
+              <h4>Xuất Báo cáo PDF</h4>
+              <p>Sinh mẫu báo cáo dạng tài liệu văn phòng, được canh lề đẹp mắt, thích hợp lưu trữ hoặc in ấn.</p>
+              <button class="btn-export-action">Xuất PDF (.pdf)</button>
+            </div>
+            <div class="export-card" onclick="exportStatsReport('print')">
+              <div class="export-icon-lg print"><i class="fas fa-print"></i></div>
+              <h4>In Báo cáo Trực tiếp</h4>
+              <p>Sử dụng cơ chế tối ưu hóa in ẩn của trình duyệt để in trực tiếp bản thống kê ra giấy A4.</p>
+              <button class="btn-export-action">In báo cáo <i class="fas fa-external-link-alt" style="font-size:0.75rem;"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mẫu preview hóa đơn in (bị ẩn trên màn hình thường, tự động hiển thị khi in) -->
+        <div id="print-report-template" class="print-only-report">
+          <!-- Injected dynamically before print -->
+        </div>
+      </div>
+    </main>
+
+    <!-- ══ PAGE: DAILY ORDERS ══ -->
+    <main class="page-content hidden" id="page-daily">
+      <div class="daily-orders-section" style="margin-top:0;">
+
+        <!-- Header -->
+        <div class="daily-orders-header">
+          <div class="daily-orders-title">
+            <div class="daily-orders-icon"><i class="fas fa-fire"></i></div>
+            <div>
+              <h2>Đơn chốt theo ngày</h2>
+              <p id="daily-orders-subtitle">Đang tải...</p>
+              <div id="crm-sync-status-info" style="font-size: 0.78rem; opacity: 0.85; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; color: #a5b4fc;"></div>
+            </div>
+          </div>
+          <div class="daily-orders-controls">
+            <div class="daily-date-picker-wrap">
+              <i class="fas fa-calendar-alt"></i>
+              <input type="date" id="daily-date-from" onchange="loadDailyOrders()" title="Từ ngày">
+              <span class="daily-date-separator">-</span>
+              <input type="date" id="daily-date-to" onchange="loadDailyOrders()" title="Đến ngày">
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="setDailyToday()" id="btn-daily-today">
+              <i class="fas fa-crosshairs"></i> Hôm nay
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="loadDailyOrders(true)" title="Xóa cache & đọc dữ liệu mới nhất từ Google Sheet">
+              <i class="fas fa-sync-alt"></i> Làm mới
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="daily-summary-grid" id="daily-summary-grid">
+          <div class="daily-card card-orders">
+            <div class="daily-card-icon"><i class="fas fa-box"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">📦 Đơn hàng</span>
+              <h3 class="daily-card-value" id="daily-pill-orders">0</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-trend" id="daily-trend-orders">—</span>
+                <span class="daily-card-breakdown" id="daily-breakdown-orders">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-revenue">
+            <div class="daily-card-icon"><i class="fas fa-donate"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">💰 Doanh thu</span>
+              <h3 class="daily-card-value" id="daily-pill-revenue">0 ₫</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-trend" id="daily-trend-revenue">—</span>
+                <span class="daily-card-breakdown" id="daily-breakdown-revenue">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-profit">
+            <div class="daily-card-icon"><i class="fas fa-chart-line"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">📈 Lợi nhuận</span>
+              <h3 class="daily-card-value" id="daily-pill-profit">0 ₫</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-trend" id="daily-trend-profit">—</span>
+                <span class="daily-card-breakdown" id="daily-breakdown-profit">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-deposit">
+            <div class="daily-card-icon"><i class="fas fa-credit-card"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">💳 Tổng cọc</span>
+              <h3 class="daily-card-value" id="daily-pill-deposit">0 ₫</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-trend" id="daily-trend-deposit">—</span>
+                <span class="daily-card-breakdown" id="daily-breakdown-deposit">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-cod">
+            <div class="daily-card-icon"><i class="fas fa-truck"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">🚚 COD còn lại</span>
+              <h3 class="daily-card-value" id="daily-pill-cod">0 ₫</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-trend" id="daily-trend-cod">—</span>
+                <span class="daily-card-breakdown" id="daily-breakdown-cod">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="daily-table-wrap" id="daily-table-wrap">
+          <div class="daily-empty" id="daily-empty">
+            <i class="fas fa-box-open"></i>
+            <p>Chưa có đơn nào trong khoảng ngày này</p>
+          </div>
+          <table class="daily-table" id="daily-orders-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>#</th><th class="th-sort" onclick="setDailySort('maSP')" title="Sắp xếp theo MÃ SP">MÃ SP <i class="fas fa-sort" id="daily-sort-masp"></i></th><th>Giá bán</th><th>Giá vốn</th>
+                <th>Tiền lời</th><th>Khách cọc</th><th>Tiền COD</th>
+                <th class="th-sort" onclick="setDailySort('tenKhach')" title="Sắp xếp theo tên khách để gom nhiều mã cùng khách">Tên khách <i class="fas fa-sort" id="daily-sort-tenkhach"></i></th><th>SĐT</th><th>Giao hàng</th>
+                <th>Khối lượng</th>
+                <th class="col-ghichu">Ghi chú</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="daily-orders-tbody"></tbody>
+            <tfoot id="daily-orders-tfoot" style="background: rgba(99,102,241,0.06); font-weight: bold; border-top: 2px solid var(--border);"></tfoot>
+          </table>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- ── PAGE: VIETTEL ORDERS (GỘP THEO KHÁCH HÀNG) ── -->
+    <main class="page-content hidden" id="page-viettel_orders">
+      <div class="daily-orders-section" style="margin-top:0;">
+
+        <!-- Header -->
+        <div class="daily-orders-header">
+          <div class="daily-orders-title">
+            <div class="daily-orders-icon" style="background: linear-gradient(135deg, #e02c1b, #991b1b);"><i class="fas fa-shipping-fast"></i></div>
+            <div>
+              <h2>Tạo đơn Viettel Post (Gộp theo khách hàng)</h2>
+              <p id="viettel-orders-subtitle">Tự động gom đơn cùng khách thành 1 kiện hàng để in bill Viettel Post</p>
+            </div>
+          </div>
+          <div class="daily-orders-controls">
+            <div class="daily-date-picker-wrap">
+              <i class="fas fa-calendar-alt"></i>
+              <input type="date" id="viettel-date-from" onchange="loadViettelOrdersPage()" title="Từ ngày">
+              <span class="daily-date-separator">-</span>
+              <input type="date" id="viettel-date-to" onchange="loadViettelOrdersPage()" title="Đến ngày">
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="setViettelToday()" id="btn-viettel-today">
+              <i class="fas fa-crosshairs"></i> Hôm nay
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="loadViettelOrdersPage(true)" title="Làm mới dữ liệu từ Google Sheet">
+              <i class="fas fa-sync-alt"></i> Làm mới
+            </button>
+            <button class="btn btn-success btn-sm" onclick="openQuickOrderFromToolbar()" style="background: #10b981; border-color: #10b981; color: white; display: inline-flex; align-items: center; gap: 6px; font-weight: 700;" title="Tạo đơn chốt mới cho Viettel Post">
+              <i class="fas fa-plus-circle"></i> + Tạo đơn nhanh
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="exportViettelGroupedExcel()" style="background: #e02c1b; border-color: #e02c1b; color: white; display: inline-flex; align-items: center; gap: 6px; font-weight: 700;" title="Xuất file Excel đã gộp theo từng khách hàng để import Viettel Post">
+              <i class="fas fa-file-excel"></i> Xuất Excel Viettel Post (Đã gộp đơn)
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary Cards for Grouped Packages -->
+        <div class="daily-summary-grid" id="viettel-summary-grid">
+          <div class="daily-card card-orders">
+            <div class="daily-card-icon"><i class="fas fa-box-open"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">📦 Số kiện hàng (Khách)</span>
+              <h3 class="daily-card-value" id="viettel-pill-packages">0</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-breakdown" id="viettel-pill-total-items">Từ 0 sản phẩm</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-profit">
+            <div class="daily-card-icon"><i class="fas fa-check-circle" style="color:#10b981;"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">✅ Đủ điều kiện in bill</span>
+              <h3 class="daily-card-value" id="viettel-pill-ready" style="color:#10b981;">0 kiện</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-breakdown">Đủ Tên, SĐT, Địa chỉ</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-deposit">
+            <div class="daily-card-icon"><i class="fas fa-exclamation-triangle" style="color:#f59e0b;"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">⚠️ Thiếu địa chỉ / SĐT</span>
+              <h3 class="daily-card-value" id="viettel-pill-missing" style="color:#f59e0b;">0 kiện</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-breakdown">Cần điền trước khi xuất</span>
+              </div>
+            </div>
+          </div>
+          <div class="daily-card card-cod">
+            <div class="daily-card-icon"><i class="fas fa-truck"></i></div>
+            <div class="daily-card-info">
+              <span class="daily-card-label">🚚 Tổng COD thu hộ</span>
+              <h3 class="daily-card-value" id="viettel-pill-cod">0 ₫</h3>
+              <div class="daily-card-sub">
+                <span class="daily-card-breakdown" id="viettel-pill-weight">Tổng: 0g</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grouped Viettel Packages Table -->
+        <div class="daily-table-wrap" id="viettel-table-wrap">
+          <div class="daily-empty" id="viettel-empty" style="display:none;">
+            <i class="fas fa-truck-loading" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
+            <p>Không có đơn chốt nào trong khoảng ngày đã chọn</p>
+          </div>
+          <table class="daily-table" id="viettel-orders-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Người nhận (*)</th>
+                <th>Số điện thoại (*)</th>
+                <th>Địa chỉ nhận hàng (*)</th>
+                <th style="min-width: 140px;">Sản phẩm gộp (Mã SP)</th>
+                <th>Khối lượng</th>
+                <th>Tiền hàng</th>
+                <th>Tiền cọc</th>
+                <th>Tiền COD</th>
+                <th>Ghi chú</th>
+                <th>Trạng thái</th>
+                <th style="text-align: center; min-width: 110px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="viettel-orders-tbody"></tbody>
+            <tfoot id="viettel-orders-tfoot" style="background: rgba(224, 44, 27, 0.06); font-weight: bold; border-top: 2px solid var(--border);"></tfoot>
+          </table>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- ── PAGE: ACTIVITY LOG ── -->
+    <main class="page-content hidden" id="page-activity">
+      <div class="page-toolbar">
+        <div class="toolbar-left">
+          <h2 class="page-title">Nhật ký hoạt động</h2>
+          <span class="record-count" id="activity-count-label">0 hoạt động</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-ghost btn-sm" onclick="loadActivityLogs()" style="border: 1px solid var(--border); padding: 8px 12px; border-radius: var(--radius-sm);">
+            <i class="fas fa-sync-alt"></i> Làm mới
+          </button>
+        </div>
+      </div>
+      
+      <div class="filter-bar" style="margin-bottom: 20px;">
+        <div class="filter-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="activity-search-input" placeholder="Tìm theo Mã SP, hành động, chi tiết..." oninput="applyActivityFilters()">
+        </div>
+        <select id="activity-action-filter" onchange="applyActivityFilters()" class="filter-select">
+          <option value="">Tất cả hành động</option>
+          <option value="Thêm mới">Thêm mới</option>
+          <option value="Cập nhật">Cập nhật</option>
+          <option value="Cập nhật nhanh">Cập nhật nhanh</option>
+          <option value="Xóa">Xóa</option>
+          <option value="Telegram">Telegram</option>
+          <option value="Sao lưu">Sao lưu</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="clearActivityFilters()">
+          <i class="fas fa-times"></i> Xóa lọc
+        </button>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table" id="activity-table">
+          <thead>
+            <tr>
+              <th style="width: 20%;">Thời gian</th>
+              <th style="width: 10%;">Dòng</th>
+              <th style="width: 15%;">Mã SP</th>
+              <th style="width: 15%;">Hành động</th>
+              <th style="width: 40%;">Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody id="activity-tbody">
+            <!-- Rows injected by JS -->
+          </tbody>
+        </table>
+        <div id="empty-state-activity" class="empty-state hidden">
+          <div class="empty-icon"><i class="fas fa-history"></i></div>
+          <h3>Chưa có hoạt động nào</h3>
+          <p>Mọi hành động thêm, sửa, xóa sẽ được ghi nhận tại đây.</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── PAGE: SYSTEM SETTINGS ── -->
+    <main class="page-content hidden" id="page-settings">
+      <div class="page-toolbar">
+        <div class="toolbar-left">
+          <h2 class="page-title">Cấu hình hệ thống</h2>
+          <p class="page-subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Thiết lập các thông số hoạt động của ứng dụng Sales Admin</p>
+        </div>
+      </div>
+
+      <div class="settings-container">
+        <!-- Card: Telegram API settings -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3><i class="fab fa-telegram-plane" style="color:#229ED9;"></i> Cấu hình thông báo Telegram</h3>
+            <p>Nhận thông báo đơn hàng đã bán trực tiếp về Telegram nhóm hoặc cá nhân</p>
+          </div>
+          <div class="settings-card-body">
+            <form id="settings-telegram-form" onsubmit="saveTelegramSettings(event)">
+              <div class="form-group">
+                <label for="settings-tg-token">Telegram Bot Token</label>
+                <input type="text" id="settings-tg-token" class="settings-input" placeholder="8743680200:AA..." required autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="settings-tg-chatid">Telegram Chat ID</label>
+                <input type="text" id="settings-tg-chatid" class="settings-input" placeholder="-488308552 hoặc chat ID cá nhân" required autocomplete="off">
+              </div>
+              <div class="settings-action-row">
+                <button type="submit" class="btn btn-primary" id="btn-save-tg">Lưu cấu hình Telegram</button>
+                <button type="button" class="btn btn-ghost" id="btn-test-tg" onclick="testTelegramIntegration()">
+                  <i class="fas fa-paper-plane"></i> Gửi thử tin nhắn test
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Card: Gemini settings -->
+        <div class="settings-card" style="margin-top: 20px;">
+          <div class="settings-card-header">
+            <h3><i class="fas fa-robot" style="color: #818cf8;"></i> Cấu hình AI Assistant (Gemini)</h3>
+            <p>Kích hoạt trợ lý AI thông minh phân tích dữ liệu bán hàng trực tiếp trên dashboard</p>
+          </div>
+          <div class="settings-card-body">
+            <form id="settings-gemini-form" onsubmit="saveGeminiSettings(event)">
+              <div class="form-group">
+                <label for="settings-gemini-key">Google Gemini API Key</label>
+                <input type="password" id="settings-gemini-key" class="settings-input" placeholder="Nhập API Key từ Google AI Studio..." autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="settings-gemini-model">Gemini Model</label>
+                <select id="settings-gemini-model" class="settings-select">
+                  <option value="gemini-3.5-flash">Gemini 3.5 Flash (Nhanh & Tối ưu nhất)</option>
+                  <option value="gemini-3.5-pro">Gemini 3.5 Pro (Phân tích sâu sắc)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                </select>
+              </div>
+              <div class="settings-action-row">
+                <button type="submit" class="btn btn-primary" id="btn-save-gemini">Lưu cấu hình Gemini</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Card: Backup settings -->
+        <div class="settings-card" style="margin-top: 20px;">
+          <div class="settings-card-header">
+            <h3><i class="fas fa-hdd" style="color: var(--success);"></i> Sao lưu dữ liệu (Google Drive)</h3>
+            <p>Hệ thống tự động sao lưu dữ liệu của bạn vào Google Drive để tránh rủi ro mất mát dữ liệu.</p>
+          </div>
+          <div class="settings-card-body">
+            <div class="backup-status-box">
+              <div class="backup-status-text">
+                <p><strong>Sao lưu tự động:</strong> Hằng ngày lúc 02:00 AM</p>
+                <p>Thư mục sao lưu trên Drive: <code>SalesAdmin_Backups</code></p>
+              </div>
+              <button type="button" class="btn btn-success" id="btn-trigger-backup" onclick="triggerManualBackup()">
+                <i class="fas fa-copy"></i> Tạo bản sao lưu ngay bây giờ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── PAGE: KIỂM TRA HỆ THỐNG (SYSTEM AUDIT) ── -->
+    <main class="page-content hidden" id="page-system_audit">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title"><i class="fas fa-stethoscope" style="color:#10b981;"></i> Trung tâm kiểm tra hệ thống</h2>
+          <p class="page-subtitle">Kiểm toán toàn diện cấu trúc Sheet, chất lượng dữ liệu & chỉ số vận hành (Chỉ đọc - Tuyệt đối không tự sửa Sheet)</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadSystemAudit(true)" id="btn-re-audit">
+          <i class="fas fa-rotate"></i> Quét lại toàn bộ
+        </button>
+      </div>
+
+      <!-- KHỐI 1: ĐIỂM SỨC KHỎE HỆ THỐNG & TOP 3 VIỆC CẦN LÀM -->
+      <div class="audit-health-hero">
+        <div class="audit-gauge-card">
+          <div class="audit-gauge-wrapper">
+            <div class="audit-gauge-circle" id="audit-gauge-circle">
+              <strong id="audit-total-score">0</strong>
+              <span>/100</span>
+            </div>
+            <div class="audit-gauge-info">
+              <span class="audit-conclusion-badge" id="audit-conclusion-badge">Đang quét...</span>
+              <p class="audit-conclusion-desc" id="audit-conclusion-desc">Hệ thống đang kiểm tra 18 quy tắc dữ liệu và 4 sheet...</p>
+            </div>
+          </div>
+
+          <!-- 5 Nhóm trọng số -->
+          <div class="audit-weight-components" id="audit-weight-components">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <div class="audit-top-actions-card">
+          <div class="top-actions-header">
+            <h3><i class="fas fa-list-check" style="color:#f59e0b;"></i> Top 3 việc quan trọng nhất cần làm trước</h3>
+            <span class="top-actions-tag">Ưu tiên hàng đầu</span>
+          </div>
+          <div class="top-actions-list" id="audit-top-actions-list">
+            <div class="profile-empty-line">Đang phân tích dữ liệu...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHỐI 2: KIỂM TRA CẤU TRÚC 4 SHEET -->
+      <div class="audit-section-header">
+        <h3><i class="fas fa-table-cells"></i> 1. Kiểm tra cấu trúc Google Sheets</h3>
+        <p>Phát hiện sheet thiếu, cột thiếu so với chuẩn 23 cột, header lạ hoặc chứa công thức</p>
+      </div>
+      <div class="audit-sheets-grid" id="audit-sheets-grid">
+        <!-- Injected dynamically -->
+      </div>
+
+      <!-- KHỐI 3: KIỂM TRA CHẤT LƯỢNG DỮ LIỆU (18 QUY TẮC) -->
+      <div class="audit-section-header" style="margin-top:30px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+          <div>
+            <h3><i class="fas fa-shield-virus"></i> 2. Kiểm tra chất lượng dữ liệu (18 Quy tắc)</h3>
+            <p>Tự động rà soát sai lệch tiền cọc/COD, trùng mã SP, thiếu ngày chốt, SĐT không hợp lệ...</p>
+          </div>
+          <div class="audit-filter-pills" id="audit-filter-pills">
+            <button class="audit-filter-pill active" onclick="filterAuditIssues('all', this)">Tất cả (<span id="count-issue-all">0</span>)</button>
+            <button class="audit-filter-pill pill-critical" onclick="filterAuditIssues('critical', this)">Nghiêm trọng (<span id="count-issue-critical">0</span>)</button>
+            <button class="audit-filter-pill pill-warning" onclick="filterAuditIssues('warning', this)">Cần kiểm tra (<span id="count-issue-warning">0</span>)</button>
+            <button class="audit-filter-pill pill-info" onclick="filterAuditIssues('info', this)">Gợi ý (<span id="count-issue-info">0</span>)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="audit-issues-table-card">
+        <div class="table-responsive">
+          <table class="data-table audit-table" id="audit-issues-table">
+            <thead>
+              <tr>
+                <th style="width:140px;">Mức độ</th>
+                <th style="width:110px;">Sheet</th>
+                <th style="width:80px;">Dòng</th>
+                <th style="width:140px;">Mã SP</th>
+                <th>Chi tiết vấn đề phát hiện</th>
+                <th style="width:130px; text-align:center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="audit-issues-tbody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">
+                  <i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu kiểm toán...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+  </div><!-- /main-wrapper -->
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════════
+     MODAL: ADD / EDIT PRODUCT
+══════════════════════════════════════════ -->
+<div id="modal-product" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modal-title"><i class="fas fa-plus-circle"></i> Thêm sản phẩm</h3>
+      <button class="modal-close" onclick="closeModal('modal-product')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-row-index">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nguồn Sheet <span class="required">*</span></label>
+          <select id="edit-sheet-name">
+            <option value="SalesData">SalesData</option>
+            <option value="Mã V">Mã V</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>MÃ SP <span class="required">*</span></label>
+          <input type="text" id="input-masp" placeholder="VD: SP001" required oninput="autoFillFromMaSP()">
+        </div>
+        <div class="form-group">
+          <label>Trạng thái</label>
+          <select id="input-trangthai">
+            <option value="Còn hàng">Còn hàng</option>
+            <option value="Đã bán">Đã bán</option>
+            <option value="Đợi CK">Đợi CK (chờ chuyển khoản)</option>
+            <option value="Đã xóa">Đã xóa để làm lại</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Giá bán (₫) <span class="required">*</span></label>
+          <input type="number" id="input-giaban" placeholder="0" oninput="calcProfit()" min="0">
+        </div>
+        <div class="form-group">
+          <label>Giá vốn (₫) <span class="required">*</span></label>
+          <input type="number" id="input-giavon" placeholder="0" oninput="calcProfit()" min="0">
+          <span id="giavon-hint"></span>
+        </div>
+      </div>
+      <div class="profit-preview" id="profit-preview">
+        <i class="fas fa-calculator"></i>
+        Tiền lời: <strong id="preview-tien-loi">0 ₫</strong>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tên khách hàng</label>
+          <input type="text" id="input-tenkhach" placeholder="Nguyễn Văn A">
+        </div>
+        <div class="form-group">
+          <label>SĐT khách hàng</label>
+          <input type="tel" id="input-sdtkhach" placeholder="0901234567" oninput="debouncedLoadCustomerHistory()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ai chốt</label>
+          <input type="text" id="input-aichot" placeholder="Tên sale / người chốt">
+        </div>
+        <div class="form-group">
+          <label>Nguồn khách</label>
+          <select id="input-nguonkhach">
+            <option value="">Chưa chọn</option>
+            <option value="TikTok Live">TikTok Live</option>
+            <option value="TikTok Shop">TikTok Shop</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Zalo">Zalo</option>
+            <option value="Khách cũ">Khách cũ</option>
+            <option value="Giới thiệu">Giới thiệu</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </div>
+      </div>
+      <div id="customer-history-panel" class="customer-history-panel hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ngày chốt</label>
+          <input type="date" id="input-ngaychot">
+        </div>
+        <div class="form-group">
+          <label>Hình thức giao hàng</label>
+          <select id="input-hinhthuc" onchange="calcCOD()">
+            <option value="COD">COD</option>
+            <option value="Freeship">Freeship</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Khách cọc (₫)</label>
+          <input type="number" id="input-khachcoc" placeholder="0" min="0" oninput="calcCOD()">
+        </div>
+        <div class="form-group">
+          <label>Tiền COD (₫) <span style="font-size:0.72rem;color:var(--text-muted);font-weight:400;">(nhập hoặc tự tính)</span></label>
+          <input type="number" id="input-tiencod" placeholder="0" min="0" oninput="onProductCodInput()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Địa chỉ khách hàng</label>
+          <input type="text" id="input-diachi" placeholder="Số nhà, phường/xã, quận/huyện, tỉnh/thành">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Ghi chú đơn</label>
+          <textarea id="input-ghichu" rows="3" placeholder="Ví dụ: khách nhận buổi tối, cần gọi trước, màu/size..."></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Link TikTok sản phẩm</label>
+          <input type="url" id="input-linktiktok" placeholder="https://tiktok.com/...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-product')">Hủy</button>
+      <button class="btn btn-primary" id="modal-save-btn" onclick="saveProduct()">
+        <i class="fas fa-save"></i> Lưu
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: TẠO ĐƠN NHANH VIETTEL POST
+══════════════════════════════════════════ -->
+<div id="modal-quick-order" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card modal-quick-order-card">
+    <div class="modal-header modal-header-quick-order">
+      <div class="quick-order-header-title">
+        <div class="quick-order-icon"><i class="fas fa-bolt"></i></div>
+        <div>
+          <h3>Tạo đơn nhanh Viettel Post</h3>
+          <p class="quick-order-subtitle">Lưu thông tin gửi hàng &amp; sẵn sàng xuất Excel in bill</p>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-quick-order')"><i class="fas fa-times"></i></button>
+    </div>
+    
+    <div class="modal-body">
+      <input type="hidden" id="quick-order-row-index">
+      <input type="hidden" id="quick-order-sheet-name">
+
+      <!-- Product snapshot banner -->
+      <div class="quick-order-prod-banner">
+        <div class="qop-item" style="flex:1;">
+          <span class="qop-label">MÃ SẢN PHẨM (*)</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <strong class="qop-val highlight" id="quick-order-masp-val">—</strong>
+            <input type="text" id="quick-order-masp-input" class="hidden" placeholder="Nhập Mã SP..." oninput="onQuickOrderMaspInput(this.value)" style="background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:4px 8px; border-radius:4px; font-weight:700; width:140px; text-transform:uppercase;">
+          </div>
+          <input type="hidden" id="quick-order-masp">
+          <div id="quick-order-masp-hint" style="display:none; color:var(--danger); font-size:0.75rem; margin-top:2px;"></div>
+        </div>
+        <div class="qop-item">
+          <span class="qop-label">GIÁ BÁN HÀNG</span>
+          <strong class="qop-val" id="quick-order-giaban-val">0 ₫</strong>
+          <input type="hidden" id="quick-order-giaban">
+        </div>
+        <div class="qop-item">
+          <span class="qop-label">TRẠNG THÁI</span>
+          <span id="quick-order-status-badge" class="badge badge-success">Còn hàng</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tên người nhận (*)</label>
+          <input type="text" id="quick-order-tenkhach" placeholder="VD: Nguyễn Văn A" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại nhận (*)</label>
+          <input type="tel" id="quick-order-sdtkhach" placeholder="09xxxxxxxx" class="dim-placeholder" oninput="debouncedQuickOrderCustomerLookup()" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Địa chỉ nhận hàng chi tiết (*) <span class="text-danger" style="font-size:0.75rem;">(Bắt buộc để Viettel Post in bill)</span></label>
+          <input type="text" id="quick-order-diachi" placeholder="Số nhà, đường/thôn, phường/xã, quận/huyện, tỉnh/thành" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Hình thức giao hàng</label>
+          <select id="quick-order-hinhthuc" onchange="calcQuickOrderCOD()">
+            <option value="COD">COD (Thu hộ tiền khi giao)</option>
+            <option value="Freeship">Freeship (Khách đã CK đủ)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Khối lượng (gram) (*)</label>
+          <div class="input-with-unit">
+            <input type="number" id="quick-order-khoiluong" value="200" min="1" max="50000" placeholder="200">
+            <span class="input-unit">g</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Khách cọc trước (₫)</label>
+          <input type="number" id="quick-order-khachcoc" value="0" min="0" oninput="calcQuickOrderCOD()" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Tiền thu hộ COD (₫) <span class="badge badge-info" style="font-size:0.65rem;">Nhập trực tiếp hoặc tự động theo Cọc</span></label>
+          <input type="number" id="quick-order-tiencod" value="0" min="0" oninput="onQuickOrderCodInput()" style="font-weight:700; color:var(--warning);">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Loại hàng hóa (*)</label>
+          <select id="quick-order-loaihang">
+            <option value="Bưu kiện" selected>Bưu kiện</option>
+            <option value="Tài liệu">Tài liệu</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tính chất hàng hóa đặc biệt</label>
+          <select id="quick-order-tinhchat">
+            <option value="" selected>-- Mặc định (để trống) --</option>
+            <option value="Hàng giá trị cao">Hàng giá trị cao</option>
+            <option value="Hàng dễ vỡ">Hàng dễ vỡ</option>
+            <option value="Hàng chất lỏng">Hàng chất lỏng</option>
+            <option value="Hàng lạnh/thực phẩm">Hàng lạnh/thực phẩm</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Dịch vụ Viettel Post (*)</label>
+          <select id="quick-order-dichvu" onchange="onQuickOrderServiceChange()">
+            <option value="LCOD" selected>LCOD - TMĐT Tiết Kiệm thỏa thuận (Có thu hộ COD)</option>
+            <option value="VTK">VTK - CP tiết kiệm thỏa thuận (Không thu hộ / Freeship)</option>
+            <option value="PHS">PHS - Nội tỉnh tiết kiệm (Tự động tắt SMS)</option>
+            <option value="VCN">VCN - CP nhanh thỏa thuận</option>
+            <option value="VHT">VHT - Hỏa tốc thỏa thuận</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Dịch vụ cộng thêm</label>
+          <input type="text" id="quick-order-dvct" value="COD, PXD" placeholder="VD: COD, PXD hoặc PXD, GKN...">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
+            <label style="margin-bottom:0;">Ghi chú gửi hàng Viettel Post</label>
+            <div class="quick-note-tags">
+              <span class="qnote-tag active" onclick="setQuickOrderNote('CHO HÀNG XEM')">CHO HÀNG XEM</span>
+              <span class="qnote-tag" onclick="setQuickOrderNote('CHO THỬ HÀNG')">CHO THỬ HÀNG</span>
+              <span class="qnote-tag" onclick="setQuickOrderNote('KHÔNG CHO XEM HÀNG')">KHÔNG CHO XEM HÀNG</span>
+            </div>
+          </div>
+          <input type="text" id="quick-order-ghichu" value="CHO HÀNG XEM" placeholder="Ghi chú in trên vận đơn Viettel Post...">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ai chốt / Nhân viên</label>
+          <input type="text" id="quick-order-aichot" placeholder="Tên sale...">
+        </div>
+        <div class="form-group">
+          <label>Nguồn đơn</label>
+          <select id="quick-order-nguonkhach">
+            <option value="TikTok Live">TikTok Live</option>
+            <option value="TikTok Shop">TikTok Shop</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Zalo">Zalo</option>
+            <option value="Khách cũ">Khách cũ</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-quick-order')">Hủy bỏ</button>
+      <button class="btn btn-primary" id="btn-save-quick-order" onclick="saveQuickOrder()">
+        <i class="fas fa-check"></i> Lưu &amp; Chốt đơn
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: CẬP NHẬT KIỆN HÀNG GỘP VIETTEL POST
+══════════════════════════════════════════ -->
+<div id="modal-viettel-package" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card modal-quick-order-card" style="max-width: 960px; width: 95%;">
+    <div class="modal-header" style="background: linear-gradient(135deg, rgba(224,44,27,0.15), rgba(153,27,27,0.05)); border-bottom: 1px solid rgba(224,44,27,0.2);">
+      <div class="quick-order-header-title">
+        <div class="quick-order-icon" style="background: linear-gradient(135deg, #e02c1b, #991b1b);"><i class="fas fa-box-open"></i></div>
+        <div>
+          <h3 style="color: #ff6b6b;"><i class="fas fa-shipping-fast"></i> Kiện hàng Viettel Post (Gộp theo khách)</h3>
+          <p class="quick-order-subtitle" id="viettel-pkg-modal-subtitle">Gộp các mã sản phẩm của cùng 1 khách thành 1 đơn giao</p>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-viettel-package')"><i class="fas fa-times"></i></button>
+    </div>
+    
+    <div class="modal-body">
+      <input type="hidden" id="viettel-pkg-group-key">
+
+      <!-- Grouped items list banner -->
+      <div class="quick-order-prod-banner" style="background: rgba(224,44,27,0.05); border: 1px dashed rgba(224,44,27,0.3); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <div style="width: 100%;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <span class="qop-label" style="color: #ff8787; font-weight:700;">📦 CÁC SẢN PHẨM TRONG KIỆN HÀNG:</span>
+            <span class="badge badge-info" id="viettel-pkg-item-count">0 SP</span>
+          </div>
+          <div id="viettel-pkg-items-chips" style="display:flex; flex-wrap:wrap; gap:6px; max-height:100px; overflow-y:auto; padding:2px 0;"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tên người nhận (*)</label>
+          <input type="text" id="viettel-pkg-tenkhach" placeholder="Tên khách hàng" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại nhận (*)</label>
+          <input type="tel" id="viettel-pkg-sdtkhach" placeholder="09xxxxxxxx" autocomplete="off" class="dim-placeholder">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Địa chỉ nhận hàng chi tiết (*) <span class="text-danger" style="font-size:0.75rem;">(Bắt buộc để Viettel Post in bill)</span></label>
+          <input type="text" id="viettel-pkg-diachi" placeholder="Số nhà, đường/thôn, phường/xã, quận/huyện, tỉnh/thành..." autocomplete="off">
+          <div id="viettel-pkg-addr-detected" class="viettel-addr-detected-badge" style="display:none;">
+            <i class="fas fa-check-circle"></i> <span id="viettel-pkg-addr-detected-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label><i class="fas fa-map-marker-alt" style="color:#ef4444;"></i> Tỉnh / Thành phố (*)</label>
+          <select id="viettel-pkg-tinh" onchange="onViettelProvinceChange()">
+            <option value="">-- Chọn Tỉnh / Thành phố --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><i class="fas fa-city" style="color:#3b82f6;"></i> Huyện / Quận (*)</label>
+          <select id="viettel-pkg-huyen" onchange="onViettelDistrictChange()">
+            <option value="">-- Chọn Huyện / Quận --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label><i class="fas fa-building" style="color:#10b981;"></i> Xã / Phường (*)</label>
+          <select id="viettel-pkg-xa" onchange="onViettelWardChange()">
+            <option value="">-- Chọn Xã / Phường --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><i class="fas fa-road" style="color:#f59e0b;"></i> Đường / Thôn / Xóm</label>
+          <input type="text" id="viettel-pkg-thonxom" placeholder="Tên đường, thôn, xóm, ngõ..." oninput="onViettelStreetChange()" autocomplete="off" class="dim-placeholder">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Hình thức giao hàng</label>
+          <select id="viettel-pkg-hinhthuc" onchange="calcViettelPkgCOD()">
+            <option value="COD">COD (Thu hộ tiền khi giao)</option>
+            <option value="Freeship">Freeship (Khách đã CK đủ)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tổng khối lượng kiện (gram) (*)</label>
+          <div class="input-with-unit">
+            <input type="number" id="viettel-pkg-khoiluong" min="1" max="50000" placeholder="200">
+            <span class="input-unit">g</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tổng giá trị hàng (₫)</label>
+          <input type="number" id="viettel-pkg-giaban" readonly style="background:var(--bg-card); font-weight:700;">
+        </div>
+        <div class="form-group">
+          <label>Tổng khách cọc (₫)</label>
+          <input type="number" id="viettel-pkg-khachcoc" min="0" oninput="calcViettelPkgCOD()" placeholder="0">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Tiền thu hộ COD (₫) <span class="badge badge-info" style="font-size:0.65rem;">Nhập trực tiếp hoặc tự động theo Cọc</span></label>
+          <input type="number" id="viettel-pkg-tiencod" value="0" min="0" oninput="onViettelPkgCodInput()" style="background:var(--bg-card); font-weight:700; color:var(--warning); font-size:1.1rem;">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Loại hàng hóa (*)</label>
+          <select id="viettel-pkg-loaihang">
+            <option value="Bưu kiện" selected>Bưu kiện</option>
+            <option value="Tài liệu">Tài liệu</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tính chất hàng hóa đặc biệt</label>
+          <select id="viettel-pkg-tinhchat">
+            <option value="" selected>-- Mặc định (để trống) --</option>
+            <option value="Hàng giá trị cao">Hàng giá trị cao</option>
+            <option value="Hàng dễ vỡ">Hàng dễ vỡ</option>
+            <option value="Hàng chất lỏng">Hàng chất lỏng</option>
+            <option value="Hàng lạnh/thực phẩm">Hàng lạnh/thực phẩm</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <label>Dịch vụ chuyển phát Viettel Post (*)</label>
+          <select id="viettel-pkg-dichvu" onchange="onViettelServiceChange()">
+            <option value="LCOD" selected>LCOD - TMĐT Tiết Kiệm thỏa thuận (Có thu hộ COD)</option>
+            <option value="VTK">VTK - CP tiết kiệm thỏa thuận (Không thu hộ / Freeship)</option>
+            <option value="PHS">PHS - Nội tỉnh tiết kiệm (Tự động tắt SMS)</option>
+            <option value="VCN">VCN - CP nhanh thỏa thuận</option>
+            <option value="VHT">VHT - Hỏa tốc thỏa thuận</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label style="margin-bottom:0;"><i class="fas fa-shield-alt" style="color:#10b981;"></i> Dịch vụ cộng thêm</label>
+            <span id="viettel-pkg-dvct-hint" style="font-size:0.75rem; color:#10b981; display:none;"><i class="fas fa-check-circle"></i> Đơn có COD: Auto COD, PXD</span>
+          </div>
+          <input type="text" id="viettel-pkg-dvct" placeholder="VD: COD, PXD hoặc PXD, GKN..." autocomplete="off">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group form-full">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
+            <label style="margin-bottom:0;">Ghi chú gửi hàng Viettel Post</label>
+            <div class="quick-note-tags">
+              <span class="qnote-tag active" onclick="setViettelPkgNote('Cho xem hàng không cho thử')">Cho xem hàng không cho thử</span>
+              <span class="qnote-tag" onclick="setViettelPkgNote('Cho thử hàng')">Cho thử hàng</span>
+              <span class="qnote-tag" onclick="setViettelPkgNote('Không cho xem hàng')">Không cho xem hàng</span>
+            </div>
+          </div>
+          <input type="text" id="viettel-pkg-ghichu" value="Cho xem hàng không cho thử" placeholder="Ghi chú in trên vận đơn Viettel Post...">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-viettel-package')">Đóng</button>
+      <button class="btn btn-primary" id="btn-save-viettel-pkg" onclick="saveViettelPackage()" style="background:#e02c1b; border-color:#e02c1b;">
+        <i class="fas fa-check"></i> Lưu thông tin kiện hàng
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: DELETE CONFIRM
+═════════════════════════════════════════── -->
+<div id="modal-delete" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card modal-sm">
+    <div class="modal-header modal-header-danger">
+      <h3><i class="fas fa-trash"></i> Xác nhận xóa</h3>
+      <button class="modal-close" onclick="closeModal('modal-delete')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p>Bạn có chắc muốn xóa sản phẩm <strong id="delete-masp-label"></strong>?</p>
+      <p class="text-muted">Hành động này không thể hoàn tác.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete')">Hủy</button>
+      <button class="btn btn-danger" id="btn-confirm-delete" onclick="confirmDelete()">
+        <i class="fas fa-trash"></i> Xóa
+      </button>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════
+     MODAL: STATS DETAIL VIEW
+ ══════════════════════════════════════════ -->
+<div id="modal-stats-detail" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card" style="max-width: 900px;">
+    <div class="modal-header">
+      <h3 id="modal-stats-detail-title"><i class="fas fa-search-plus"></i> Chi tiết đơn hàng chốt</h3>
+      <button class="modal-close" onclick="closeModal('modal-stats-detail')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding: 16px 24px;">
+      <div class="table-wrapper" style="margin-bottom: 0; max-height: 500px; overflow-y: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>MÃ SP</th>
+              <th>Giá bán</th>
+              <th>Giá vốn</th>
+              <th>Tiền lời (Lãi)</th>
+              <th>Tên khách</th>
+              <th>Sheet</th>
+              <th>Giao hàng</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="stats-detail-tbody">
+            <!-- Injected via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-stats-detail')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: GOAL SETTINGS (F9)
+══════════════════════════════════════════ -->
+<div id="modal-goal" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <h3><i class="fas fa-bullseye" style="color:#818cf8;"></i> Đặt mục tiêu doanh thu</h3>
+      <button class="modal-close" onclick="closeModal('modal-goal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="goal-input-grid">
+        <div>
+          <label>🌅 Mục tiêu ngày (₫)</label>
+          <input type="number" id="goal-input-daily" placeholder="VD: 5000000" min="0">
+        </div>
+        <div>
+          <label>📅 Mục tiêu tháng (₫)</label>
+          <input type="number" id="goal-input-monthly" placeholder="VD: 100000000" min="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-goal')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveGoals()"><i class="fas fa-save"></i> Lưu mục tiêu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: VIP TIER LABEL SETTINGS
+══════════════════════════════════════════ -->
+<div id="modal-vip-tier" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <h3><i class="fas fa-crown" style="color:#fbbf24;"></i> Chỉnh hạng VIP</h3>
+      <button class="modal-close" onclick="closeModal('modal-vip-tier')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="vip-tier-settings-grid">
+        <div class="vip-tier-setting-row">
+          <label>Đồng</label>
+          <input type="text" id="vip-label-bronze" maxlength="60" placeholder="VIP Đồng">
+          <input type="number" id="vip-money-bronze" min="0" step="100000" placeholder="5000000">
+        </div>
+        <div class="vip-tier-setting-row">
+          <label>Bạc</label>
+          <input type="text" id="vip-label-silver" maxlength="60" placeholder="VIP Bạc">
+          <input type="number" id="vip-money-silver" min="0" step="100000" placeholder="20000000">
+        </div>
+        <div class="vip-tier-setting-row">
+          <label>Vàng</label>
+          <input type="text" id="vip-label-gold" maxlength="60" placeholder="VIP Vàng">
+          <input type="number" id="vip-money-gold" min="0" step="100000" placeholder="50000000">
+        </div>
+        <div class="vip-tier-setting-row">
+          <label>Kim Cương</label>
+          <input type="text" id="vip-label-diamond" maxlength="60" placeholder="VIP Kim Cương">
+          <input type="number" id="vip-money-diamond" min="0" step="100000" placeholder="100000000">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-vip-tier')">Hủy</button>
+      <button class="btn btn-primary" id="vip-label-save-btn" onclick="saveVipTierLabels()"><i class="fas fa-save"></i> Lưu hạng VIP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: CUSTOMER PROFILE (CLV)
+══════════════════════════════════════════ -->
+<div id="customer-profile-modal" class="modal-overlay hidden" onclick="if(event.target===this) closeCustomerProfileModal()">
+  <div class="modal-card customer-profile-content">
+    <div class="modal-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+      <h3><i class="fas fa-id-card" style="color:var(--primary-light);"></i> Hồ sơ chi tiết khách hàng</h3>
+      <button class="modal-close" onclick="closeCustomerProfileModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding: 0;">
+      <div class="customer-profile-hero">
+        <div class="customer-avatar"><i class="fas fa-user"></i></div>
+        <div class="customer-main-info">
+          <h2 id="profile-name">Khách hàng</h2>
+          <p id="profile-phone">SĐT: —</p>
+          <span class="badge badge-secondary" id="profile-rank">Khách hàng Thường</span>
+          <div id="profile-tags-list" class="profile-tags-list"></div>
+        </div>
+      </div>
+      
+      <div class="profile-stats-grid">
+        <div class="profile-stat-card">
+          <span class="stat-label">Tổng đơn chốt</span>
+          <h3 id="profile-total-orders">0</h3>
+        </div>
+        <div class="profile-stat-card">
+          <span class="stat-label">Tổng chi tiêu</span>
+          <h3 id="profile-total-spending">0 ₫</h3>
+        </div>
+        <div class="profile-stat-card ltv-card">
+          <span class="stat-label">LTV</span>
+          <h3 id="profile-ltv">0 ₫</h3>
+        </div>
+        <div class="profile-stat-card">
+          <span class="stat-label">Lợi nhuận</span>
+          <h3 id="profile-total-profit">0 ₫</h3>
+        </div>
+        <div class="profile-stat-card">
+          <span class="stat-label">Đơn gần nhất</span>
+          <h3 id="profile-last-date">—</h3>
+        </div>
+        <div class="profile-stat-card risk-card">
+          <span class="stat-label">Rủi ro</span>
+          <h3 id="profile-risk-score">Thấp</h3>
+        </div>
+      </div>
+
+      <div class="customer-360-grid">
+        <div>
+          <div class="profile-section-title">
+            <i class="fas fa-circle-info" style="color:var(--info);"></i>
+            <span>Thông tin</span>
+          </div>
+          <div id="profile-info-list" class="profile-info-list"></div>
+        </div>
+        <div>
+          <div class="profile-section-title">
+            <i class="fas fa-shield-halved" style="color:#fbbf24;"></i>
+            <span>Rủi ro</span>
+          </div>
+          <div id="profile-risk-list" class="profile-signal-list"></div>
+        </div>
+      </div>
+
+      <!-- VIP Upgrades: Radar AI and Gamified Lucky Wheel -->
+      <div class="customer-vip-modules-grid">
+        <!-- Module A: Radar & Predictor -->
+        <div class="profile-section-card">
+          <div class="profile-section-title">
+            <i class="fas fa-bullseye" style="color:var(--primary-light);"></i>
+            <span>Radar Hành Vi & Dự Đoán AI</span>
+          </div>
+          <div class="profile-radar-container" style="position: relative; height: 180px; width: 100%; display: flex; justify-content: center; align-items: center; margin-bottom: 12px;">
+            <canvas id="profile-radar-chart"></canvas>
+          </div>
+          <div class="profile-prediction-box">
+            <div class="prediction-item">
+              <span class="pred-label"><i class="fas fa-magic"></i> Dự báo đơn tiếp:</span>
+              <strong id="pred-next-date" class="pred-value">Đang tính...</strong>
+            </div>
+            <div class="prediction-item" style="margin-top: 8px;">
+              <span class="pred-label"><i class="fas fa-gift"></i> Mẫu giày khuyên dùng:</span>
+              <strong id="pred-suggested-sp" class="pred-value">Đang tính...</strong>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Module B: Lucky Wheel Gamification -->
+        <div class="profile-section-card" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="profile-section-title" style="align-self: flex-start; width: 100%;">
+            <i class="fas fa-circle-notch" style="color:#fbbf24;"></i>
+            <span>Vòng Quay Tri Ân VIP (Gamification)</span>
+          </div>
+          <!-- Múp Xám MC -->
+          <div id="wheel-mascot-container" style="width: 70px; height: 70px; margin-bottom: 5px;"></div>
+          <div class="lucky-wheel-wrapper">
+            <div class="wheel-pointer"><i class="fas fa-chevron-down"></i></div>
+            <canvas id="lucky-wheel-canvas" width="220" height="220"></canvas>
+            <button class="btn-spin-wheel" id="btn-spin-wheel" onclick="spinLoyaltyWheel()">QUAY</button>
+          </div>
+          <div class="lucky-wheel-info" id="lucky-wheel-info">
+            Đang kiểm tra lượt quay...
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-section-title">
+        <i class="fas fa-note-sticky" style="color:var(--primary-light);"></i>
+        <span>Ghi chú</span>
+      </div>
+      <div id="profile-notes-list" class="profile-signal-list"></div>
+      
+      <div class="profile-section-title">
+        <i class="fas fa-note-sticky" style="color:#fbbf24;"></i> 
+        <span>Lưu ý & Hẹn ước chốt đơn</span>
+      </div>
+      <div id="profile-warnings-list" class="profile-warnings-list">
+        <!-- dynamic warning list -->
+      </div>
+      
+      <div class="profile-section-title">
+        <i class="fas fa-history" style="color:var(--primary-light);"></i>
+        <span>Lịch sử các đơn chốt</span>
+      </div>
+      <div class="table-wrapper" style="max-height: 200px; overflow-y: auto; margin-bottom: 0;">
+        <table class="data-table compact-table" style="min-width: 100%;">
+          <thead>
+            <tr>
+              <th>Mã SP</th>
+              <th>Ngày</th>
+              <th>Doanh thu</th>
+              <th>Lãi</th>
+              <th>Giao hàng</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="profile-orders-tbody">
+            <!-- dynamic orders -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 16px; display: flex; justify-content: flex-end;">
+      <button class="btn btn-primary" onclick="closeCustomerProfileModal()">Đóng hồ sơ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Mascot Múp Xám -->
+<div id="floating-mascot-container" class="floating-mascot-container mascot-state-idle" onclick="petMascot(event)" style="display: none;">
+  <div class="floating-mascot-bubble" id="floating-mascot-bubble" onclick="event.stopPropagation();">
+    <span class="mascot-close-bubble" onclick="closeMascotBubble()">&times;</span>
+    
+    <!-- Lời thoại của Múp -->
+    <div id="floating-mascot-bubble-text" style="font-weight: 500; margin-bottom: 6px;">Xin chào sen! Múp Xám đã sẵn sàng.</div>
+    
+    <!-- Dòng chỉ số: Cá Vàng & Hạnh Phúc -->
+    <div class="mascot-stats-row">
+      <span class="mascot-fish-counter" title="Cá Vàng thu hoạch từ đơn chốt hôm nay. Dùng để cho Múp ăn!">
+        🐟 <span id="mascot-fish-qty">0</span> cá
+      </span>
+      <span class="mascot-happiness-container" title="Độ Hạnh phúc của Múp Xám">
+        ❤️
+        <div class="mascot-happiness-bar">
+          <div class="mascot-happiness-fill" id="mascot-happiness-fill" style="width: 50%;"></div>
+        </div>
+        <span id="mascot-happiness-val">50</span>%
+      </span>
+    </div>
+    
+    <!-- Hàng nút bấm tương tác -->
+    <div class="mascot-interact-row">
+      <button class="btn-mascot-action" id="btn-feed-soup" onclick="feedMascot('soup')" title="Soup thưởng (+15 Hạnh phúc, tốn 1 Cá)">
+        🥣 Soup (-1🐟)
+      </button>
+      <button class="btn-mascot-action" id="btn-feed-pate" onclick="feedMascot('pate')" title="Pate thượng hạng (+40 Hạnh phúc, tốn 3 Cá)">
+        🥫 Pate (-3🐟)
+      </button>
+      <button class="btn-mascot-action" onclick="petMascot()" title="Vuốt ve Múp (+5 Hạnh phúc)">
+        🖐️ Vuốt ve
+      </button>
+    </div>
+  </div>
+  <div class="floating-mascot-avatar" id="floating-mascot-avatar">
+    <!-- SVG injected here -->
+  </div>
+</div>
+
+<!-- MODAL: TASK DETAIL -->
+<div id="modal-task-detail" class="modal-overlay hidden" onclick="closeModalOnOutside(event)">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <h3><i class="fas fa-tasks"></i> Chi tiết công việc</h3>
+      <button class="modal-close" onclick="closeModal('modal-task-detail')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+        <div><strong>Tên công việc:</strong> <span id="task-detail-name">—</span></div>
+        <div><strong>Hạn chót:</strong> <span id="task-detail-deadline">—</span></div>
+        <div><strong>Trạng thái:</strong> <span id="task-detail-status">—</span></div>
+        <div><strong>Phụ trách:</strong> <span id="task-detail-assignee">—</span></div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <strong>Mô tả:</strong>
+          <p id="task-detail-desc" style="font-size:0.9rem; color:var(--text-secondary); background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; border:1px solid var(--border); min-height:60px; white-space:pre-wrap;"></p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-task-detail')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confetti 3D Canvas Overlay -->
+<canvas id="confetti-canvas-overlay"></canvas>
+
+<script>
+// ============================================================
+// Google Apps Script Adapter Bridge for Vercel & VPS (Version 2.0)
+// 100% Compliant with Google Apps Script Client API Builder Pattern
+// ============================================================
+
+(function () {
+  function createGasRunner(options) {
+    const state = {
+      successHandler: (options && options.successHandler) || null,
+      failureHandler: (options && options.failureHandler) || null,
+      userObject: (options && options.userObject) || null
+    };
+
+    const baseTarget = {
+      withSuccessHandler: function (fn) {
+        return createGasRunner({
+          successHandler: fn,
+          failureHandler: state.failureHandler,
+          userObject: state.userObject
+        });
+      },
+      withFailureHandler: function (fn) {
+        return createGasRunner({
+          successHandler: state.successHandler,
+          failureHandler: fn,
+          userObject: state.userObject
+        });
+      },
+      withUserObject: function (obj) {
+        return createGasRunner({
+          successHandler: state.successHandler,
+          failureHandler: state.failureHandler,
+          userObject: obj
+        });
+      }
+    };
+
+    return new Proxy(baseTarget, {
+      get: function (target, prop) {
+        if (prop in target) {
+          return target[prop];
+        }
+
+        // Any server-side function call: .login(...), .getCrmSyncSnapshot(...), .getAllRows(...)
+        return function (...args) {
+          const fnName = String(prop);
+          fetch(`/api/gas/${fnName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ args: args })
+          })
+            .then(async function (res) {
+              if (!res.ok) {
+                const txt = await res.text();
+                throw new Error(`HTTP ${res.status}: ${txt}`);
+              }
+              return res.json();
+            })
+            .then(function (data) {
+              if (data && data.success) {
+                if (state.successHandler) {
+                  state.successHandler(data.result, state.userObject);
+                }
+              } else {
+                const err = new Error((data && data.error) || `Lỗi khi gọi hàm ${fnName}`);
+                if (state.failureHandler) {
+                  state.failureHandler(err, state.userObject);
+                } else {
+                  console.error(`[GAS Bridge] Error in ${fnName}:`, err);
+                }
+              }
+            })
+            .catch(function (err) {
+              console.error(`[GAS Bridge] Network error in ${fnName}:`, err);
+              if (state.failureHandler) {
+                state.failureHandler(err, state.userObject);
+              }
+            });
+        };
+      }
+    });
+  }
+
+  window.google = window.google || {};
+  window.google.script = window.google.script || {};
+  window.google.script.run = createGasRunner({});
+})();
+
+</script>
+<script src="script.js"></script>
+</body>
+</html>
