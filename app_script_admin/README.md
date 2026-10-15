@@ -150,7 +150,16 @@ cd d:\CV\Anta_new\app_scipt
 clasp pull
 ```
 
-### 3. Cài đặt các Trigger tự động
+### 3. Đồng bộ giao diện sang bản Vercel
+`Script.html` / `Style.html` là bản gốc. `vercel_frontend/script.js` và `style.css` được sinh từ chúng, **không sửa tay**:
+```powershell
+cd app_script_admin
+node sync-frontend.js          # sinh lại script.js, style.css cho bản Vercel
+node sync-frontend.js --check  # chỉ kiểm tra có lệch không (exit 1 nếu lệch)
+```
+`Index.html` không đồng bộ tự động vì bản Vercel có phần riêng (adapter, link CSS, cấu hình VIP).
+
+### 4. Cài đặt các Trigger tự động
 Trong giao diện Web App, truy cập mục **Cấu hình hệ thống (Settings)** hoặc chạy các hàm sau từ trình soạn thảo Apps Script:
 - `ensureAllSystemTriggersInstalled()`: Kích hoạt toàn bộ trigger (onEdit, pending queue, backup, daily report).
 - `setupTelegramWebhook()`: Đăng ký Webhook cho Telegram Bot phục vụ tra cứu mã sản phẩm.
