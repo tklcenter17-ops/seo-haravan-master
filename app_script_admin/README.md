@@ -159,6 +159,11 @@ node sync-frontend.js --check  # chỉ kiểm tra có lệch không (exit 1 nế
 ```
 `Index.html` không đồng bộ tự động vì bản Vercel có phần riêng (adapter, link CSS, cấu hình VIP).
 
+**Tự động khi commit:** hook `.githooks/pre-commit` tự chạy sync và đưa `script.js`, `style.css` vào cùng commit. Mỗi máy chỉ cần bật 1 lần sau khi clone/pull (chạy ở thư mục gốc repo):
+```bash
+git config core.hooksPath app_script_admin/.githooks
+```
+
 ### 4. Cài đặt các Trigger tự động
 Trong giao diện Web App, truy cập mục **Cấu hình hệ thống (Settings)** hoặc chạy các hàm sau từ trình soạn thảo Apps Script:
 - `ensureAllSystemTriggersInstalled()`: Kích hoạt toàn bộ trigger (onEdit, pending queue, backup, daily report).
