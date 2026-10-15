@@ -1,0 +1,8 @@
+#!/bin/sh
+# Tự động đồng bộ Script.html / Style.html -> vercel_frontend/ mỗi lần commit.
+root=$(git rev-parse --show-toplevel) || exit 0
+cd "$root/app_script_admin" || exit 0
+command -v node >/dev/null 2>&1 || { echo "[pre-commit] Không có node, bỏ qua đồng bộ Vercel"; exit 0; }
+node sync-frontend.js >/dev/null || { echo "[pre-commit] Lỗi sync-frontend.js, hủy commit"; exit 1; }
+git add vercel_frontend/script.js vercel_frontend/style.css
+exit 0
