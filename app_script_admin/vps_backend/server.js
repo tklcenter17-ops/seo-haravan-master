@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -9,6 +10,7 @@ const backupHelper = require('./scripts/backup');
 const app = express();
 const PORT = process.env.PORT || 3005;
 
+app.use(compression()); // nén gzip response (snapshot ~3MB JSON) để tải nhanh hơn qua mạng
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -132,8 +134,8 @@ function buildCustomerLifetimeDashboard(rows) {
   };
 }
 
-function getDashboardStatsService() {
-  const rows = getAllReportRowsService();
+function getDashboardStatsService(preloadedRows) {
+  const rows = preloadedRows || getAllReportRowsService();
   const today = new Date().toISOString().slice(0, 10);
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
@@ -415,19 +417,29 @@ async function syncFromGoogleSheetLive(force = false) {
 
 async function getCrmSyncSnapshotService(options) {
   const force = Boolean(options && (options.forceRefresh || options.bypassCache));
-  try {
-    await syncFromGoogleSheetLive(force);
-  } catch (e) {
-    console.warn('Live sync before snapshot failed, returning SQLite cache:', e.message);
+  if (force) {
+    // Người dùng chủ động bấm làm mới: chờ đồng bộ xong để có dữ liệu mới nhất.
+    try {
+      await syncFromGoogleSheetLive(true);
+    } catch (e) {
+      console.warn('Live sync before snapshot failed, returning SQLite cache:', e.message);
+    }
+  } else {
+    // Tải trang thường: trả SQLite ngay (nhanh), đồng bộ Google Sheet chạy ngầm, không chặn.
+    syncFromGoogleSheetLive(false).catch(e => console.warn('Background sync failed:', e.message));
   }
 
-  const rows = getAllRowsService();
+  // Đọc bảng orders đúng 1 lần rồi dùng lại cho rows / stats / đếm (trước đây đọc 3 lần).
   const reportRows = getAllReportRowsService();
-  const stats = getDashboardStatsService();
+  const rows = reportRows.filter(r => r.sheetName === 'SalesData' || r.sheetName === 'Mã V');
+  const stats = getDashboardStatsService(reportRows);
   const dailyRows = reportRows.filter(r => r.trangThai === 'Đã bán' || r.trangThai === 'Đợi CK' || r.ngayChot);
-  const countSales = reportRows.filter(r => r.sheetName === 'SalesData').length;
-  const countMaV = reportRows.filter(r => r.sheetName === 'Mã V').length;
-  const countThanhLy = reportRows.filter(r => r.sheetName === 'THANH LÝ').length;
+  let countSales = 0, countMaV = 0, countThanhLy = 0;
+  for (const r of reportRows) {
+    if (r.sheetName === 'SalesData') countSales++;
+    else if (r.sheetName === 'Mã V') countMaV++;
+    else if (r.sheetName === 'THANH LÝ') countThanhLy++;
+  }
 
   return {
     rows: rows,
