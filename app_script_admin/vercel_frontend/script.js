@@ -469,12 +469,9 @@ function triggerSoftSync() {
   else if (pageId === 'page-daily') loadDailyOrders(false);
 }
 
+// Đã TẮT tự động tải lại: dùng nút "Hôm nay" / nút làm mới để cập nhật thủ công.
 function startAutoRefresh() {
   stopAutoRefresh();
-  autoRefreshTimer = setInterval(() => {
-    if (document.hidden) return;
-    triggerSoftSync();
-  }, 300000); // Auto-refresh every 300s (5 mins)
 }
 
 function stopAutoRefresh() {
@@ -483,18 +480,6 @@ function stopAutoRefresh() {
     autoRefreshTimer = null;
   }
 }
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    const now = Date.now();
-    if (now - lastSyncRequestTime > 600000) { // Check if last sync was more than 600 seconds ago
-      triggerSoftSync();
-    }
-    startAutoRefresh();
-  } else {
-    stopAutoRefresh();
-  }
-});
 
 function setCurrentDate() {
   const now = new Date();
@@ -8665,10 +8650,7 @@ function pollShopPulseRealtime() {
   loadShopPulseData();
 }
 
-// Bắt đầu interval polling nhẹ mỗi 45 giây
-if (!shopPulseTimer) {
-  shopPulseTimer = setInterval(pollShopPulseRealtime, 45000);
-}
+// Đã TẮT polling Shop Pulse định kỳ (trước đây mỗi 45 giây); dữ liệu chỉ tải khi mở Dashboard hoặc bấm làm mới.
 
 // ─────────────────────────────────────────────
 // TRUNG TÂM KIỂM TRA HỆ THỐNG (SYSTEM AUDIT)
