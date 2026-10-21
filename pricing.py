@@ -76,7 +76,7 @@ def format_jpy(amount: int | None) -> str:
     return f"{amount:,}".replace(",", ".")
 
 
-def format_currency_amount(amount: int | None, currency: str = "JPY", with_approx: bool = False) -> str:
+def format_currency_amount(amount: int | None, currency: str = "JPY", with_approx: bool = False, rate: int = 165) -> str:
     """Định dạng số tiền kèm đơn vị tiền tệ chuẩn (VND, USD, JPY)."""
     if amount is None:
         return "0"
@@ -85,7 +85,8 @@ def format_currency_amount(amount: int | None, currency: str = "JPY", with_appro
     if curr == "VND":
         res = f"{val_str} đ"
         if with_approx and amount >= 1000:
-            approx_jpy = round(amount / 165)
+            effective_rate = rate if rate > 0 else 165
+            approx_jpy = round(amount / effective_rate)
             res += f" (~{approx_jpy:,} yên)".replace(",", ".")
         return res
     elif curr == "USD":
@@ -97,7 +98,8 @@ def format_currency_amount(amount: int | None, currency: str = "JPY", with_appro
     else:
         res = f"{val_str} yên"
         if with_approx and amount >= 100:
-            approx_vnd = round(amount * 165)
+            effective_rate = rate if rate > 0 else 165
+            approx_vnd = round(amount * effective_rate)
             res += f" (~{approx_vnd:,} đ)".replace(",", ".")
         return res
 
@@ -216,10 +218,10 @@ def calculate_reference_pricing(
         )
 
 
-def get_bid_advisory(pricing: PricingResult, primary_currency: str = "JPY") -> dict[str, str | int | None]:
+def get_bid_advisory(pricing: PricingResult, primary_currency: str = "JPY", rate: int = 165) -> dict[str, str | int | None]:
     """Tạo thông tin khuyến nghị đi bid tức thì cho người dùng khi tham gia đấu giá."""
     curr = (primary_currency or "JPY").upper()
-    rate = 165
+    rate = rate if rate > 0 else 165
 
     # 1. Xác định mức giá nên bid tối đa
     if pricing.has_cap and pricing.cap_amount_jpy:
@@ -637,4 +639,93 @@ def format_financial_pnl_report(val: dict[str, Any]) -> str:
         f"• Điểm hòa vốn: Doanh thu chỉ cần đạt trên <b>{all_in_fmt} đ</b> là bắt đầu có lãi!",
     ]
     return "\n".join(lines)
+
+
+def compute_deal_score(
+    price_jpy: int | None = None,
+    tech_grade: str = "unknown",
+    is_lot: bool = False,
+    unit_price_jpy: int | None = None,
+    has_box: bool = False,
+    bids: int = 0,
+    target_ref_jpy: int | None = None,
+) -> dict[str, Any]:
+    """Tính toán điểm kèo thơm (Deal Score) từ 1.0 đến 10.0 cho một phiên đấu giá Yahoo Auctions."""
+    base_score = 6.0
+    reasons = []
+
+    # 1. Tình trạng kỹ thuật / đánh lửa
+    tech = (tech_grade or "unknown").lower()
+    if tech == "working":
+        base_score += 1.5
+        reasons.append("Đã thử lửa tốt (+1.5)")
+    elif tech == "spark_only":
+        base_score += 0.5
+        reasons.append("Có tia đá lửa (+0.5)")
+    elif tech in ("untested", "junk"):
+        base_score -= 1.5
+        reasons.append("Chưa kiểm tra lửa / Hàng xác (-1.5)")
+
+    # 2. Phụ kiện
+    if has_box:
+        base_score += 1.0
+        reasons.append("Có hộp / phụ kiện (+1.0)")
+
+    # 3. Mức độ cạnh tranh (bids)
+    if 1 <= bids <= 5:
+        base_score += 0.5
+        reasons.append("Ít đối thủ cạnh tranh (+0.5)")
+    elif bids >= 25:
+        base_score -= 0.5
+        reasons.append("Phiên nóng nhiều lượt bid (-0.5)")
+
+    # 4. Đối chiếu giá tham chiếu / mốc trần / lịch sử kho
+    if price_jpy and target_ref_jpy and target_ref_jpy > 0:
+        ratio = price_jpy / target_ref_jpy
+        if ratio <= 0.6:
+            base_score += 2.5
+            reasons.append("Giá sàn rẻ hơn >40% so với mốc tham chiếu (+2.5)")
+        elif ratio <= 0.8:
+            base_score += 1.5
+            reasons.append("Giá sàn rẻ hơn >20% so với mốc tham chiếu (+1.5)")
+        elif ratio <= 1.0:
+            base_score += 0.5
+            reasons.append("Giá sàn nằm trong ngưỡng an toàn (+0.5)")
+        elif ratio > 1.2:
+            base_score -= 2.5
+            reasons.append("Giá sàn đã vượt trần an toàn (-2.5)")
+        else:
+            base_score -= 1.0
+            reasons.append("Giá sàn đã chớm vượt mốc tham chiếu (-1.0)")
+
+    # 5. Phân tích đơn giá lô (nếu là lô)
+    if is_lot and unit_price_jpy:
+        if unit_price_jpy <= 1000:
+            base_score += 1.5
+            reasons.append(f"Đơn giá ~{unit_price_jpy:,}Y/cây là vùng gom hời (+1.5)".replace(",", "."))
+        elif unit_price_jpy >= 3500 and tech in ("untested", "junk"):
+            base_score -= 1.0
+            reasons.append("Đơn giá lô khá cao so với hàng chưa kiểm tra (-1.0)")
+
+    final_score = max(1.0, min(10.0, round(base_score, 1)))
+
+    if final_score >= 8.5:
+        label = "🔥 KÈO RẤT THƠM (NÊN THEO BID)"
+        badge = "XUẤT SẮC"
+    elif final_score >= 7.0:
+        label = "🟢 KÈO KHÁ TỐT (GIÁ HỢP LÝ)"
+        badge = "TỐT"
+    elif final_score >= 5.0:
+        label = "🟡 KÈO BÌNH THƯỜNG (CÂN NHẮC KỸ)"
+        badge = "TRUNG BÌNH"
+    else:
+        label = "🔴 KÈO RỦI RO / GIÁ ĐẮT (NÊN BỎ)"
+        badge = "RỦI RO"
+
+    return {
+        "score": final_score,
+        "label": label,
+        "badge": badge,
+        "reasons": reasons,
+    }
 

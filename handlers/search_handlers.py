@@ -245,6 +245,14 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         from handlers.start import help_command
         await help_command(update, context)
         return
+    if "⚡ Mercari Săn Nhanh" in text or "⚡ Mercari" in text:
+        from handlers.mercari_handlers import mercari_command
+        await mercari_command(update, context)
+        return
+    if "📱 Bảng Điều Khiển" in text or "📱 WebApp Dashboard" in text:
+        from bot import dashboard_command
+        await dashboard_command(update, context)
+        return
 
     # 0.2 Bắt các từ khóa chào hỏi hoặc yêu cầu xem menu trực tiếp
     t_clean = text.lower().strip()
@@ -303,20 +311,29 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Tra cứu bảng tỷ giá nhanh
     norm_text = text.lower().strip()
     if norm_text in ["ty gia", "tỷ giá", "ty gia yen", "tỷ giá yên", "doi tien", "đổi tiền", "ti gia"]:
+        db_path = context.bot_data["config"].db_path
+        conn = get_db_connection(db_path)
+        try:
+            from repository import get_exchange_rate
+            cur_r = get_exchange_rate(conn)
+        finally:
+            conn.close()
         msg = (
             "💴 <b>BẢNG TỶ GIÁ THAM KHẢO & CÔNG THỨC SHIP:</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
-            "• 🇯🇵 <b>1 JPY (Yên):</b> ~165 VND\n"
-            "• 🇯🇵 <b>1 Man (10.000 JPY / 1 Vạn):</b> ~1.650.000 VND\n"
+            f"• 🇯🇵 <b>1 JPY (Yên):</b> ~{cur_r} VND (Gõ <code>/rate {cur_r}</code> để chỉnh)\n"
+            f"• 🇯🇵 <b>1 Man (10.000 JPY / 1 Vạn):</b> ~{cur_r * 10000:,} VND\n"
             "• 🇺🇸 <b>1 USD (Đô):</b> ~25.500 VND\n\n"
             "📦 <b>Chi phí phụ trợ ước tính về tay:</b>\n"
-            "• Ship nội địa Nhật: ~500 - 1.200 yên (~82.000 - 198.000 đ)\n"
+            f"• Ship nội địa Nhật: ~500 - 1.200 yên (~{500 * cur_r:,} - {1200 * cur_r:,} đ)\n"
             "• Cước bay Nhật - VN: ~180.000 - 200.000 đ/cây\n"
             "• Ron + bấc + đá bảo dưỡng: ~30.000 - 50.000 đ/cây\n\n"
             "💡 <i>Anh có thể gõ nhanh số tiền (ví dụ: <code>15000Y</code> hoặc <code>15k yen</code>) để bot tính nhẩm về tay tức thì!</i>"
-        )
+        ).replace(",", ".")
         await update.effective_message.reply_html(msg)
         return
+
+
 
     # 1. Kiểm tra Link Yahoo Auctions / Buyee / ZenMarket (HƯỚNG 1)
     from parser import extract_yahoo_auction_id, fetch_yahoo_auction_info
@@ -383,7 +400,8 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             ]
 
             # 1. Trạng thái phiên đấu
-            rate = 165
+            from repository import get_exchange_rate
+            rate = get_exchange_rate(conn)
             if status == "closed":
                 lines.append("🔴 <b>TRẠNG THÁI: PHIÊN ĐÃ KẾT THÚC (TÀN PHIÊN)</b>")
                 if curr_price:
@@ -445,7 +463,7 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             brand_match = match_brand_and_model_from_title(title)
             sim_rec = find_recent_similar_record(conn, brand_match["brand"], brand_match["line"])
             if sim_rec and curr_price:
-                sim_rate = 165
+                sim_rate = rate
                 sim_vnd = round(sim_rec.amount_jpy * sim_rate)
                 sim_vnd_fmt = f"{sim_vnd:,}".replace(",", ".")
                 sim_date = sim_rec.created_at[:10] if sim_rec.created_at else ""
@@ -484,6 +502,28 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 elif tech == "working":
                     lines.append("• 🔥 <b>Đã lên lửa (着火確認):</b> Máy hoạt động bình thường, cần soi kỹ ren ốc đáy và độ khít nắp xem có bị xì sau khi đóng nắp không.")
                 lines.append("• 🔍 <b>Lưu ý ngoại quan:</b> Nên soi kỹ ảnh các góc cạnh xem có vết cấn móp nặng ảnh hưởng buồng kín hay không.")
+
+            # 7. Chấm điểm kèo thơm (Deal Score 1 - 10)
+            from pricing import compute_deal_score
+            target_ref = None
+            if group and (group.pricing.cap_amount_jpy or group.pricing.reference_price_jpy):
+                target_ref = group.pricing.cap_amount_jpy or group.pricing.reference_price_jpy
+            elif sim_rec:
+                target_ref = sim_rec.amount_jpy
+
+            has_box_bool = any(k in accessories.lower() for k in ["hộp", "box", "full", "sổ"])
+            deal_data = compute_deal_score(
+                price_jpy=curr_price,
+                tech_grade=analysis.get("tech_grade", "unknown"),
+                is_lot=lot_info["is_lot"],
+                unit_price_jpy=lot_info.get("unit_price_jpy"),
+                has_box=has_box_bool,
+                bids=bids,
+                target_ref_jpy=target_ref,
+            )
+            lines.append(f"\n⭐ <b>ĐIỂM KÈO THƠM (DEAL SCORE): {deal_data['score']}/10</b> — {deal_data['label']}")
+            if deal_data["reasons"]:
+                lines.append(f"<i>(Đánh giá: {' • '.join(deal_data['reasons'])})</i>")
 
             # Caching dữ liệu cho Album ảnh và Alarm
             context.bot_data[f"yh_imgs:{auction_id}"] = info.get("images", [])
@@ -630,7 +670,14 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # 4. Kiểm tra tính nhẩm nhanh giá Yahoo/eBay (Quick JPY Bid Calculator)
     from parser import parse_quick_calc_input
-    calc_res = parse_quick_calc_input(text)
+    db_path_calc = context.bot_data["config"].db_path
+    conn_calc = get_db_connection(db_path_calc)
+    try:
+        from repository import get_exchange_rate
+        db_rate = get_exchange_rate(conn_calc)
+    finally:
+        conn_calc.close()
+    calc_res = parse_quick_calc_input(text, rate=db_rate)
     if calc_res:
         jpy_fmt = f"{calc_res['amount_jpy']:,}".replace(",", ".")
         base_vnd_fmt = f"{calc_res['base_vnd']:,}".replace(",", ".")

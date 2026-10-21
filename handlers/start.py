@@ -24,19 +24,33 @@ HELP_TEXT = """🔥 <b>TRỢ LÝ SĂN & DỌN QUẸT CHUYÊN SÂU (V4.1)</b>
 • <code>bệnh dupont xì gas</code> / <code>thay ron dupont</code>
 • <code>kẹt đá zippo</code> / <code>bay xăng zippo</code> / <code>ronson xì gas</code>
 
-<b>4. Radar Săn Lô Bật Lửa (Hôm Nay):</b>
-• <code>/radar</code> hoặc <code>/radar_lot</code>: Quét ngay các lô bật lửa có lượt bid kết thúc trong ngày hôm nay trên Yahoo Auctions.
-• <code>/radar all</code>: Bắn toàn bộ 100% tất cả các lô hôm nay dạng tin nhắn liên tục.
+<b>4. Radar Săn Lô & Hãng Bật Lửa (Hôm Nay):</b>
+• <code>/radar</code> hoặc <code>/radar all</code>: Quét các lô bật lửa có lượt bid kết thúc hôm nay trên Yahoo.
+• <code>/radar dupont</code>: Quét riêng Dupont Line 1, Line 2, Gatsby có bid kết thúc hôm nay.
+• <code>/radar dunhill</code>: Quét riêng Dunhill Rollagas có bid kết thúc hôm nay.
+• <code>/radar zippo</code>: Quét riêng Zippo có lượt bid kết thúc hôm nay.
 
 <b>5. Quản lý dọn lô & phân bổ giá vốn:</b>
 • <code>/donlo</code>: Xem danh sách các lô quẹt trong kho chờ dọn
 • <code>/donlo Q0006 6 8</code>: Cập nhật dọn sống 6 cây, rã xác 8 cây ➔ Tự động tính giá vốn thực/cây sống.
 
-<b>6. Nhập giá & Quản lý kho:</b>
+<b>6. Nhập giá, Tỷ giá & Quản lý kho:</b>
+• <code>/rate</code>: Xem tỷ giá JPY/VND hiện tại | <code>/rate 168</code>: Cập nhật tỷ giá mới
 • <code>/data [tên quẹt] [giá Y/VND/$]</code>: Nhập nhanh giá thắng
 • <code>/recent</code>: Xem 10 bản ghi gần nhất | <code>/view Q0001</code>: Xem chi tiết
-• <code>/cap Q0001 [giá]</code>: Đặt mốc trần bid cá nhân | <code>/undo</code>: Hoàn tác
 • <code>/export</code>: Xuất toàn bộ kho ra CSV & JSON | <code>/stats</code>: Thống kê kho
+• <code>/clean</code> hoặc <code>/clean 2</code>: Dọn sạch link radar, audit log cũ > 2-3 ngày, tối ưu VPS
+
+<b>7. Phân Loại Radar Yahoo & WebApp Dashboard:</b>
+• <code>/radar gas</code>: Quét riêng Lot Gas Đá (bật lửa gas, đá lửa, flint)
+• <code>/radar dau</code>: Quét riêng Bật Lửa Dầu (oil lighters, xăng dầu)
+• <code>/radar zippo</code>: Quét riêng Zippo kết thúc hôm nay
+• <code>/radar thapcam</code>: Quét riêng Lô Thập Cẩm / hỗn hợp
+• <code>/dashboard</code>: Mở Mini WebApp trực quan (thẻ hình ảnh, P&L, live countdown).
+
+<b>8. Radar Đấu Giá eBay (Sắp Tàn Phiên & Có Bids):</b>
+• <code>/radarebay</code>: Quét toàn bộ bật lửa đang đấu giá có bids kết thúc trước 11:00 AM sáng mai.
+• <code>/radarebay dupont</code>, <code>/radarebay dunhill</code>, <code>/radarebay zippo</code>: Lọc theo hãng.
 """
 
 
@@ -66,10 +80,15 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔍 Tra giá", callback_data="menu:search_price"),
         ],
         [
-            InlineKeyboardButton("🎯 Radar Lô Hôm Nay", callback_data="radar_refresh"),
-            InlineKeyboardButton("📊 Thống kê", callback_data="menu:stats"),
+            InlineKeyboardButton("⚡ Lot Gas Đá", callback_data="radar_brand:gas_da"),
+            InlineKeyboardButton("📱 Bảng Điều Khiển", callback_data="menu:dashboard"),
         ],
         [
+            InlineKeyboardButton("🎯 Radar Lô Hôm Nay", callback_data="radar_refresh"),
+            InlineKeyboardButton("💴 Tỷ giá Yên", callback_data="menu:rate"),
+        ],
+        [
+            InlineKeyboardButton("📊 Thống kê", callback_data="menu:stats"),
             InlineKeyboardButton("📋 Đã lưu gần đây", callback_data="menu:recent"),
         ],
     ]
@@ -144,3 +163,9 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     elif data == "menu:stats":
         from handlers.admin import stats_command
         await stats_command(update, context)
+    elif data == "menu:rate":
+        from handlers.admin import rate_command
+        await rate_command(update, context)
+    elif data == "menu:dashboard":
+        from bot import dashboard_command
+        await dashboard_command(update, context)

@@ -163,6 +163,26 @@ CREATE TABLE IF NOT EXISTS radar_settings (
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+-- Bảng lưu vết phân loại audit các phiên Yahoo (verified / rejected / uncertain)
+CREATE TABLE IF NOT EXISTS yahoo_lot_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    auction_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    decision_code TEXT NOT NULL, -- VERIFIED_LOT, SINGLE_ITEM, ACCESSORY_ONLY, PER_PIECE_CHOICE, UNCERTAIN
+    lighter_count INTEGER,
+    condition_label TEXT,
+    brands TEXT,
+    evidence_reason TEXT,
+    price_jpy INTEGER,
+    bids INTEGER DEFAULT 0,
+    end_time TEXT,
+    url TEXT,
+    image_url TEXT,
+    scanned_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_yahoo_audit_aid ON yahoo_lot_audit_log(auction_id);
+CREATE INDEX IF NOT EXISTS idx_yahoo_audit_decision ON yahoo_lot_audit_log(decision_code, scanned_at);
 """
 
 

@@ -660,7 +660,7 @@ def parse_attributes(desc: str) -> dict[str, Any]:
     return attrs
 
 
-def parse_quick_calc_input(text: str) -> dict[str, Any] | None:
+def parse_quick_calc_input(text: str, rate: int = 165) -> dict[str, Any] | None:
     """Nhận diện câu lệnh hoặc con số tính nhẩm nhanh giá bid trên sàn Yahoo (Quick JPY Bid Calculator).
     
     Ví dụ:
@@ -712,15 +712,15 @@ def parse_quick_calc_input(text: str) -> dict[str, Any] | None:
     if not has_explicit_currency and amt_jpy < 1000:
         return None
 
-    rate = 165  # Tỷ giá JPY/VND tham khảo
-    base_vnd = amt_jpy * rate
+    effective_rate = rate if rate > 0 else 165
+    base_vnd = amt_jpy * effective_rate
     # Phí ship quốc tế + kho dịch vụ tạm tính: ~180.000 - 200.000 đ/cây
     shipping_fee_vnd = 200000
     total_landing_vnd = base_vnd + shipping_fee_vnd
 
     return {
         "amount_jpy": amt_jpy,
-        "rate": rate,
+        "rate": effective_rate,
         "base_vnd": base_vnd,
         "shipping_fee_vnd": shipping_fee_vnd,
         "total_landing_vnd": total_landing_vnd,
@@ -951,13 +951,14 @@ async def fetch_yahoo_auction_info(auction_id: str) -> dict[str, Any]:
     """Fetch thông tin chi tiết phiên đấu Yahoo Auctions (tiêu đề, giá, trạng thái, phí ship, tình trạng, mô tả)."""
     import httpx
     import json
-    url = f"https://page.auctions.yahoo.co.jp/jp/auction/{auction_id}"
+    clean_aid = extract_yahoo_auction_id(auction_id) or str(auction_id).strip().lstrip("#")
+    url = f"https://auctions.yahoo.co.jp/jp/auction/{clean_aid}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
     }
     info: dict[str, Any] = {
-        "auction_id": auction_id,
+        "auction_id": clean_aid,
         "url": url,
         "title": "",
         "current_price_jpy": None,
@@ -970,6 +971,8 @@ async def fetch_yahoo_auction_info(auction_id: str) -> dict[str, Any]:
         "shipping_fee_jpy": None,
         "image_url": "",
         "images": [],
+        "category_id": "",
+        "category_path": [],
         "is_fetched": False,
     }
     try:
@@ -984,6 +987,7 @@ async def fetch_yahoo_auction_info(auction_id: str) -> dict[str, Any]:
                     try:
                         data = json.loads(m_next.group(1))
                         item = data.get("props", {}).get("pageProps", {}).get("initialState", {}).get("item", {}).get("detail", {}).get("item", {})
+                        detail = data.get("props", {}).get("pageProps", {}).get("initialState", {}).get("item", {}).get("detail", {})
                         if item:
                             info["title"] = item.get("title", "").strip()
                             info["status"] = item.get("status", "open")
@@ -992,6 +996,14 @@ async def fetch_yahoo_auction_info(auction_id: str) -> dict[str, Any]:
                             info["end_time"] = item.get("endTime", "")
                             info["formatted_end_time"] = item.get("formattedEndTime", "")
                             info["conditionName"] = item.get("conditionName", "")
+
+                            cat_info = item.get("category") or detail.get("category") or {}
+                            if isinstance(cat_info, dict):
+                                path = cat_info.get("path", [])
+                                if isinstance(path, list):
+                                    info["category_path"] = path
+                                    if path:
+                                        info["category_id"] = str(path[-1].get("id") or "")
 
                             desc_val = item.get("description", "")
                             if isinstance(desc_val, list):
@@ -1023,6 +1035,10 @@ async def fetch_yahoo_auction_info(auction_id: str) -> dict[str, Any]:
 
                 # 2. Fallback nếu không có __NEXT_DATA__
                 if not info["is_fetched"]:
+                    cat_matches = re.findall(r'href="[^"]*(?:category/list/|list5/)(\d+)[^"]*"[^>]*>([^<]+)</a>', html)
+                    if cat_matches:
+                        info["category_path"] = [{"id": cid, "name": cname.strip()} for cid, cname in cat_matches]
+                        info["category_id"] = cat_matches[-1][0]
                     m_og = re.search(r'<meta\s+property=["\']og:title["\']\s+content=["\']([^"\']+)["\']', html)
                     if m_og:
                         raw_title = m_og.group(1)
@@ -1068,52 +1084,496 @@ async def fetch_yahoo_auction_info(auction_id: str) -> dict[str, Any]:
     return info
 
 
-def analyze_lot_quantity(title: str, description: str = "", price_jpy: int | None = None, shipping_fee_jpy: int | None = None) -> dict[str, Any]:
-    """Phân tích số lượng cây quẹt trong Lô (Lot / Bulk / Set) và tính đơn giá bình quân."""
-    text = f"{title} {description}".lower()
+# ==============================================================================
+# BỘ XÁC MINH LOT BẬT LỬA YAHOO CHUYÊN SÂU (STRICT LOT VERIFICATION ENGINE)
+# ==============================================================================
 
-    patterns = [
-        r"(\d+)\s*(?:個|本|点|丁|セット|台)",
+_NON_LIGHTER_EXCLUDE_RE = re.compile(
+    r"(アイコス|iqos|iluma|イルマ|glo|グロー|ploom|プルーム|ベイプ|vape|電子タバコ|電子たばこ|加熱式タバコ|加熱式|ポッド|relx|"
+    r"ドクターベイプ|dr\.vape|myblu|juul|シーシャ|shisha|リキッド|ニコチン|アトマイザー|"
+    r"靴下|ソックス|時計|ウォッチ|腕時計|バッグ|財布|コインケース|小銭入れ|名刺入れ|カードケース|パスケース|マネークリップ|"
+    r"ネクタイ|カフス|タイピン|タイバー|香水|フレグランス|洋酒|古酒|ウイスキー|ブランデー|"
+    r"万年筆|ボールペン|ペン先|シャツ|ジャケット|コート|シューズ|ベルト|マフラー|スカーフ|ハンカチ|スーツ|"
+    r"メガネ|眼鏡|サングラス|めがね|リング|指輪|ネックレス|ブレスレット|ペンダント|ピアス|イヤリング|ブローチ|"
+    r"キーリング|キーケース|キーホルダー|灰皿|アッシュトレイ|シガーカッター|葉巻カッター|熱収縮チューブ|ハンダ|配線修理)",
+    re.IGNORECASE,
+)
+
+# Bật lửa nhựa rẻ tiền dùng 1 lần, bật lửa khò bếp gas dài, đồ tiện lợi 100 yên
+_DISPOSABLE_TRASH_RE = re.compile(
+    r"(使い捨て|百円ライター|100円ライター|チャッカマン|ガストーチ|ミニトーチ|"
+    r"クッキングバーナー|トーチバーナー|点火棒|"
+    r"\btokai\b|東海ライター|\bbic\b|\bcricket\b|\bclipper\b)",
+    re.IGNORECASE,
+)
+
+_LIGHTER_INDICATOR_RE = re.compile(
+    r"(ライター|zippo|ジッポ|dupont|デュポン|dunhill|ダンヒル|cartier|カルティエ|ronson|ロンソン|maruman|マルマン|givenchy|ジバンシ|colibri|コリブリ|sarome|サロメ|オイルライター|ガスライター|喫煙具|着火|火花|rollagas|gatsby|ligne)",
+    re.IGNORECASE,
+)
+
+
+def is_genuine_lighter_item(title: str, description: str = "") -> bool:
+    """Kiểm tra nghiêm ngặt xem sản phẩm (từ Mercari, eBay, Yahoo) có đúng là BẬT LỬA hay không.
+    
+    Loại bỏ 100% thuốc lá điện tử (IQOS, Iluma, Glo, Ploom, Vape), hàng thời trang (ví, thắt lưng, bút, đồng hồ),
+    phụ kiện đơn thuần (chỉ bán bao da/case, hộp rỗng, đá lửa, gạt tàn), và bật lửa nhựa dùng 1 lần 100 yên.
+    """
+    text = f"{title} {description}".strip()
+    if not text:
+        return False
+
+    # 1. Bắt buộc loại bỏ thuốc lá điện tử (IQOS, vape, pod) và hàng thời trang ngoài quẹt
+    if _NON_LIGHTER_EXCLUDE_RE.search(text):
+        return False
+
+    # 1.5. Loại bỏ bật lửa nhựa rẻ tiền 100 yên / dùng 1 lần (trừ khi có thương hiệu cao cấp đi kèm)
+    if _DISPOSABLE_TRASH_RE.search(text):
+        has_premium_brand = bool(re.search(r"(?:dupont|デュポン|dunhill|ダンヒル|zippo|ジッポ|cartier|カルティエ)", text, re.IGNORECASE))
+        if not has_premium_brand:
+            return False
+        return False
+
+    # 2. Loại bỏ trường hợp phụ kiện đơn thuần (bao da/case, gạt tàn, hộp rỗng, dao cắt xì gà) khi không có bật lửa thật đi kèm
+    is_acc_word = bool(re.search(r"(?:ケース|カバー|ホルダー|スリーブ|ポーチ|灰皿|シガーカッター|空箱|元箱のみ|箱のみ)", text, re.IGNORECASE))
+    if is_acc_word:
+        # Nếu có từ chỉ phụ kiện, bắt buộc phải có từ chỉ bật lửa thật sự ("ライター", "オイルライター", "ガスライター", "ライター本体", "着火")
+        has_actual_lighter = bool(re.search(r"(?:ライター|オイルライター|ガスライター|ライター本体|着火)", text, re.IGNORECASE))
+        if not has_actual_lighter:
+            return False
+        # Nếu là caseのみ / 箱のみ thì dù có chữ zippo/dupont cũng loại
+        if re.search(r"(?:ケースのみ|カバーのみ|ホルダーのみ|空箱|箱のみ|元箱のみ|ポーチのみ)", text, re.IGNORECASE):
+            if not re.search(r"ライター本体", text, re.IGNORECASE):
+                return False
+
+    # 3. Bắt buộc phải có chỉ báo bật lửa (Whitelist)
+    if not _LIGHTER_INDICATOR_RE.search(text):
+        return False
+
+    return True
+
+
+def is_genuine_lighter_lot(title: str, description: str = "") -> bool:
+    """Kiểm tra nghiêm ngặt: CHỈ CHẤP NHẬN LOT BẬT LỬA (từ 2 cây trở lên), LOẠI BỎ 100% CÂY LẺ.
+    
+    Quy tắc:
+    1. Bắt buộc vượt qua is_genuine_lighter_item (phải là bật lửa, không phải IQOS, vape, phụ kiện hay hàng thời trang).
+    2. Bóc tách số lượng và dấu hiệu gom lô:
+       - Nếu count == 1 hoặc có dấu hiệu bán 1 cây đơn lẻ -> FALSE (LOẠI BỎ HÀNG LẺ).
+       - Nếu count >= 2 -> TRUE (LOT HỢP LỆ).
+       - Nếu có từ khóa lot rõ ràng (まとめ, まとめ売り, まとめて, 大量, セット, 詰め合わせ, アソート, おまとめ)
+         và không có từ khóa phủ định bán lẻ -> TRUE.
+       - Mọi trường hợp còn lại (hàng 1 cây không có dấu hiệu lot) -> FALSE.
+    """
+    if not is_genuine_lighter_item(title, description):
+        return False
+
+    full_text = f"{title} {description}".strip()
+
+    # 1. Kiểm tra dấu hiệu bán lẻ 1 cây rõ rệt (Single item indicators)
+    if _SINGLE_CHOICE_FROM_PHOTO_RE.search(full_text):
+        return False
+    if re.search(r"(?:1本のみ|1点のみ|単品|単体|1個のみ|本体のみ|1本出品|1点出品)", full_text):
+        if not re.search(r"(?:まとめ|セット|大量)", full_text):
+            return False
+
+    # 2. Bóc tách số lượng cây thực tế bằng engine chuyên sâu
+    count, is_multiple_confirmed, reason = extract_actual_lighter_count(title, description)
+
+    if count is not None:
+        if count >= 2:
+            return True
+        if count == 1:
+            return False
+
+    if is_multiple_confirmed:
+        return True
+
+    # 3. Kiểm tra các từ khóa lot tích cực
+    has_lot_kw = any(k in full_text for k in [
+        "まとめ売り", "まとめて", "大量まとめ", "大量", "詰め合わせ", "詰合せ",
+        "一括", "アソート", "アソートセット", "おまとめ", "まとめ"
+    ])
+
+    # Kiểm tra từ "セット" (set) nếu đi kèm từ 2 trở lên hoặc có từ khóa set
+    has_set_kw = bool(re.search(r"(?:[2-9]|\d{2,})\s*点セット", full_text)) or "セット" in full_text
+
+    if has_lot_kw or has_set_kw:
+        # Đảm bảo không bị bán tách lẻ
+        has_split = bool(re.search(r"バラ売り", full_text))
+        has_no_split = bool(re.search(r"バラ売り(不可|はできません|はいたしません|NG|しません|出来ません)", full_text))
+        if has_split and not has_no_split:
+            return False
+        return True
+
+    # Nếu chỉ là 1 cây bình thường (không có từ khóa lot nào) -> LOẠI BỎ HÀNG LẺ
+    return False
+
+
+# Chỉ bán phụ kiện, vỏ hộp rỗng, linh kiện/ruột
+_ACCESSORY_ONLY_RE = re.compile(
+    r"(?:箱のみ|ケースのみ|空箱|元箱のみ|木箱のみ|インサイドユニット|インナーユニット|ユニットのみ|部品のみ|パーツのみ|フリントのみ|発火石のみ|替え芯のみ|ガスボンベのみ|ガス缶のみ|ガスボンベ|発火石|替え芯|ウィック)",
+    re.IGNORECASE,
+)
+
+# Bán chọn từng món / giá tính riêng từng cây
+_PER_PIECE_CHOICE_RE = re.compile(
+    r"(?:どれか1つ|どれか1点|お選び(?:ください|頂|願)?|1つお選び|ご希望の(?:番号|品|種類|カラー|ものを)|好きなものを|"
+    r"(?:各1個|各1本|各1点|1個|1本|1点|単品)(?:あたり)?(?:の)?(?:価格|値段|金額|お値段)|単品価格)",
+    re.IGNORECASE,
+)
+
+# Bán 1 cây đơn lẻ hoặc chụp nhiều cây nhưng mô tả nói chỉ bán 1 cây chỉ định
+_SINGLE_CHOICE_FROM_PHOTO_RE = re.compile(
+    r"(?:1点のみの出品|1本のみの出品|出品物は1点|商品は1本|赤丸の1点|指定の1点|画像のうち1点|写真のうち1点|単品|単体|1本のみ|1点のみ|本体のみ)",
+    re.IGNORECASE,
+)
+
+_LOT_POSITIVE_KEYWORDS = [
+    "まとめ売り", "まとめて", "大量まとめ", "大量", "詰め合わせ", "詰合せ", "一括", "アソート", "アソートセット"
+]
+
+_BRAND_PATTERNS = [
+    ("Dupont", re.compile(r"(dupont|デュポン|st dupont|s\.t\. dupont)", re.IGNORECASE)),
+    ("Zippo", re.compile(r"(zippo|ジッポ|ジッポー)", re.IGNORECASE)),
+    ("Dunhill", re.compile(r"(dunhill|ダンヒル)", re.IGNORECASE)),
+    ("Cartier", re.compile(r"(cartier|カルティエ)", re.IGNORECASE)),
+    ("Ronson", re.compile(r"(ronson|ロンソン)", re.IGNORECASE)),
+    ("Maruman", re.compile(r"(maruman|マルマン)", re.IGNORECASE)),
+    ("Givenchy", re.compile(r"(givenchy|ジバンシ)", re.IGNORECASE)),
+    ("Colibri", re.compile(r"(colibri|コリブリ)", re.IGNORECASE)),
+    ("Sarome", re.compile(r"(sarome|サロメ)", re.IGNORECASE)),
+]
+
+
+def extract_actual_lighter_count(title: str, description: str = "") -> tuple[int | None, bool, str]:
+    """Bóc tách số lượng cây bật lửa thực tế (tách biệt khỏi năm sản xuất, bản giới hạn, hộp, phụ kiện).
+    
+    Trả về: (lighter_count, is_multiple_confirmed, reason_note)
+    """
+    full_text = f"{title} {description}".strip()
+    t_clean = full_text
+
+    # 1. Bóc tách số lượng giả:
+    # - Phiên bản giới hạn (ví dụ: 1000個限定, 限定1000個, 500本限定)
+    t_clean = re.sub(r"(?:限定\s*\d+\s*(?:個|本|点|丁|台|セット)|(?:\d+)\s*(?:個|本|点|丁|台|セット)?\s*限定(?:品|モデル)?)", " ", t_clean)
+    # - Năm sản xuất / Replica (1932, 1933, 1935, 1941, 1937, 1980, 1990, 2000...)
+    t_clean = re.sub(r"\b(19\d\d|20\d\d)\b", " ", t_clean)
+    # - Dòng model Line 1, Line 2
+    t_clean = re.sub(r"(?:ライン|line|ligne)\s*[12]", " ", t_clean, flags=re.IGNORECASE)
+    # - Số phụ kiện/hộp/gas/đá
+    t_clean = re.sub(r"(?:箱|ケース|ボックス|元箱|空箱)\s*\d+\s*(?:個|点|つ)", " ", t_clean)
+    t_clean = re.sub(r"(?:ガス|ガスボンベ|オイル|オイル缶)\s*\d+\s*(?:本|缶)", " ", t_clean)
+    t_clean = re.sub(r"(?:フリント|石|発火石|替え芯)\s*\d+\s*(?:個|点|粒|個入)", " ", t_clean)
+
+    # 2. Kiểm tra nếu có breakdown chỉ bán 1 cây bật lửa (ví dụ: "3点セット: ライター1点、元箱、オイル缶" hoặc "ライター1本")
+    m_single_lighter = re.search(r"(?:ライター|本体|zippo|ジッポ|デュポン|ダンヒル)\s*[:：\-]?\s*1\s*(?:本|個|点|丁|台)", full_text, re.IGNORECASE)
+    has_explicit_lot = any(k in title for k in _LOT_POSITIVE_KEYWORDS)
+    if m_single_lighter and not has_explicit_lot:
+        return 1, False, "Chỉ có 1 cây bật lửa trong phiên bán (kèm phụ kiện/hộp)"
+
+    # Nếu tiêu đề có dạng "X点セット" nhưng kèm phụ kiện và chỉ có 1 bật lửa
+    has_set = re.search(r"(\d+)\s*点セット", title)
+    has_accessories = re.search(r"(?:元箱|箱|ケース|オイル|ガス|フリント|石|保証書|説明書)", full_text)
+    if has_set and has_accessories and not any(k in title for k in ["まとめ", "大量", "詰め合わせ", "本まとめ"]):
+        # Nếu có từ 1 cây hoặc không có số lượng cây bật lửa rõ ràng
+        m_lighter_cnt = re.search(r"(?:ライター|zippo|ジッポ|デュポン|ダンヒル)\s*[:：\-]?\s*(\d+)\s*(?:本|個|点)", full_text, re.IGNORECASE)
+        if m_lighter_cnt and int(m_lighter_cnt.group(1)) == 1:
+            return 1, False, "Bộ combo phụ kiện chỉ gồm 1 cây bật lửa"
+        elif not m_lighter_cnt:
+            # Ví dụ: "ZIPPO 1996 オイルライター フリント オイル缶 3点セット"
+            # Chỉ có 1 bật lửa Zippo + 2 phụ kiện (flint + oil)
+            acc_matches = len(re.findall(r"(?:箱|ケース|オイル|ガス|フリント|石|説明書|保証書)", full_text))
+            set_num = int(has_set.group(1))
+            if set_num - acc_matches <= 1:
+                return 1, False, "Bộ combo phụ kiện chỉ có 1 cây bật lửa"
+
+    # 3. Tìm số lượng bật lửa rõ ràng
+    # Ưu tiên tìm số lượng gắn liền với tên sản phẩm / bật lửa
+    m_direct_lighters = re.findall(r"(?:ライター|オイルライター|ガスライター|zippo|ジッポ|デュポン|ダンヒル|cartier|カルティエ|ronson|ロンソン)\s*[:：\-]?\s*(\d+)\s*(?:本|個|点|丁|台)", t_clean, re.IGNORECASE)
+    if m_direct_lighters:
+        direct_counts = [int(x) for x in m_direct_lighters if 1 <= int(x) <= 500]
+        if direct_counts:
+            direct_max = max(direct_counts)
+            if direct_max == 1:
+                return 1, False, "Chỉ có 1 cây bật lửa"
+            return direct_max, True, f"Xác nhận {direct_max} cây bật lửa"
+
+    count_patterns = [
+        r"(?:計|合計|総数)\s*(\d+)\s*(?:個|本|点|丁|台)",
+        r"(\d+)\s*本セット",
+        r"(\d+)\s*(?:個|本|点|丁|台)\s*(?:セット|まとめ|まとめて|売り)?",
+        r"(\d+)\s*点セット",
         r"(?:lô|set|pack|combo)\s*(\d+)",
         r"(\d+)\s*(?:cây|chiec|chiếc|qua|cái|pcs|items)",
         r"(\d+)\s*個まとめて",
     ]
 
-    detected_count = None
-    for p in patterns:
-        m = re.search(p, text)
-        if m:
-            c = int(m.group(1))
-            if 2 <= c <= 500:
-                detected_count = c
-                break
+    detected_counts: list[int] = []
+    for p in count_patterns:
+        for m in re.finditer(p, t_clean, re.IGNORECASE):
+            val = int(m.group(1))
+            if 2 <= val <= 500:
+                detected_counts.append(val)
 
-    lot_keywords = ["まとめ", "まとめて", "セット", "アソート", "山", "大量", "ジャンク品", "まとめ売り", "lo ", "lô "]
-    is_lot = bool(detected_count) or any(k in text for k in lot_keywords)
+    if detected_counts:
+        max_count = max(detected_counts)
+        return max_count, True, f"Xác nhận số lượng {max_count} cây bật lửa"
 
-    unit_price_jpy = None
-    unit_price_vnd = None
-    unit_cost_with_ship_jpy = None
-    unit_cost_with_ship_vnd = None
+    # 4. Nếu không có số lượng cụ thể, kiểm tra dấu hiệu bán sỉ gom nhiều cây rõ ràng
+    has_lot_keyword = any(k in full_text for k in _LOT_POSITIVE_KEYWORDS) or "複数" in full_text
+    has_no_split = bool(re.search(r"バラ売り(不可|はできません|はいたしません|NG|しません|出来ません)", full_text))
 
-    if detected_count and price_jpy and price_jpy > 0:
-        rate = 165
-        unit_price_jpy = round(price_jpy / detected_count)
-        unit_price_vnd = round((price_jpy * rate) / detected_count)
+    if has_lot_keyword or has_no_split:
+        return None, True, "Bán chung nhiều cây bật lửa (chưa rõ số lượng cụ thể)"
 
-        ship = shipping_fee_jpy or 0
-        total_jpy = price_jpy + ship
-        unit_cost_with_ship_jpy = round(total_jpy / detected_count)
-        unit_cost_with_ship_vnd = round((total_jpy * rate) / detected_count)
+    return None, False, "Không phát hiện số lượng hoặc dấu hiệu bán lô"
 
-    return {
-        "is_lot": is_lot,
-        "count": detected_count,
-        "unit_price_jpy": unit_price_jpy,
-        "unit_price_vnd": unit_price_vnd,
-        "unit_cost_with_ship_jpy": unit_cost_with_ship_jpy,
-        "unit_cost_with_ship_vnd": unit_cost_with_ship_vnd,
+
+def verify_yahoo_lighter_lot(info: dict[str, Any]) -> dict[str, Any]:
+    """Kiểm tra và xác minh nghiêm ngặt một phiên đấu Yahoo Auctions có phải là LOT BẬT LỬA hợp lệ hay không.
+    
+    Quy tắc nghiệp vụ:
+    - Bắt buộc bán chung từ 2 cây bật lửa trở lên và giá bid áp dụng cho cả lot.
+    - Loại bỏ 100% hàng lẻ (1 cây kể cả fullbox, phụ kiện), chỉ bán hộp/ruột, bán chọn từng cây.
+    - Không đủ bằng chứng -> UNCERTAIN (giữ nội bộ, không hiển thị/không gửi).
+    """
+    title = str(info.get("title") or "").strip()
+    description = str(info.get("description") or "").strip()
+    condition_raw = str(info.get("conditionName") or "").strip()
+    status = str(info.get("status") or "open").lower().strip()
+    bids = int(info.get("bids") or 0)
+    price_jpy = info.get("current_price_jpy")
+    if price_jpy is not None:
+        try:
+            price_jpy = int(price_jpy)
+        except (ValueError, TypeError):
+            price_jpy = 0
+    else:
+        price_jpy = 0
+
+    shipping_fee_jpy = info.get("shipping_fee_jpy")
+    if shipping_fee_jpy is not None:
+        try:
+            shipping_fee_jpy = int(shipping_fee_jpy)
+        except (ValueError, TypeError):
+            shipping_fee_jpy = 0
+
+    url = str(info.get("url") or "")
+    aid = str(info.get("auction_id") or "")
+    image_url = str(info.get("image_url") or "")
+    end_time = str(info.get("end_time") or "")
+
+    full_text = f"{title} {description} {condition_raw}".strip()
+
+    # Khởi tạo kết quả mặc định
+    result: dict[str, Any] = {
+        "is_verified_lot": False,
+        "decision_code": "UNCERTAIN",
+        "lighter_count": None,
+        "badge_label": "CHƯA RÕ",
+        "condition_label": "Chưa kiểm tra",
+        "condition_code": "untested",
+        "brands": [],
+        "brand_summary": "Bật lửa",
+        "evidence_reason": "",
+        "title": title,
+        "auction_id": aid,
+        "current_price_jpy": price_jpy,
+        "unit_price_jpy": None,
+        "unit_price_vnd": None,
+        "shipping_fee_jpy": shipping_fee_jpy,
+        "unit_cost_with_ship_jpy": None,
+        "unit_cost_with_ship_vnd": None,
+        "bids": bids,
+        "url": url,
+        "image_url": image_url,
+        "end_time": end_time,
+        "remain_text": info.get("remain_text", ""),
+        "remain_mins": info.get("remain_mins", -1),
+        "category_id": str(info.get("category_id") or ""),
+        "category_path": info.get("category_path") or [],
     }
+
+    # Bóc tách thương hiệu
+    detected_brands = []
+    for b_name, b_re in _BRAND_PATTERNS:
+        if b_re.search(full_text):
+            detected_brands.append(b_name)
+    result["brands"] = detected_brands
+    if len(detected_brands) > 2:
+        result["brand_summary"] = f"Hỗn hợp ({', '.join(detected_brands[:3])}...)"
+    elif len(detected_brands) == 2:
+        result["brand_summary"] = f"Hỗn hợp ({detected_brands[0]} + {detected_brands[1]})"
+    elif len(detected_brands) == 1:
+        result["brand_summary"] = detected_brands[0]
+    else:
+        result["brand_summary"] = "Bật lửa tổng hợp"
+
+    # Bóc tách tình trạng
+    if any(p in full_text for p in ["ジャンク", "junk", "部品取り", "現状品", "故障", "不動", "難あり", "サビ"]):
+        result["condition_code"] = "junk"
+        result["condition_label"] = "Junk / Xác / Lấy linh kiện"
+    elif any(p in full_text for p in ["着火確認済み", "着火ok", "着火確認", "火花・着火ok", "動作確認済み", "着火良好"]):
+        result["condition_code"] = "working"
+        result["condition_label"] = "Hoạt động / Đã thử lửa"
+    elif any(p in full_text for p in ["火花のみ", "火花ok", "火花確認"]):
+        result["condition_code"] = "spark_only"
+        result["condition_label"] = "Có tia lửa đá (chưa nạp gas)"
+    elif any(p in full_text for p in ["動作未確認", "着火未確認", "未確認", "未チェック", "現状渡し", "動作確認は行っておりません", "保証できません"]):
+        result["condition_code"] = "untested"
+        result["condition_label"] = "Chưa kiểm tra (Chưa thử lửa)"
+    else:
+        result["condition_code"] = "untested"
+        result["condition_label"] = "Chưa kiểm tra (Bán hiện trạng)"
+
+    # 1. Kiểm tra trạng thái phiên
+    if status == "closed" or any(c in full_text for c in ["オークションは終了しました", "落札者"]):
+        result["decision_code"] = "CLOSED_AUCTION"
+        result["evidence_reason"] = "Phiên đấu giá đã kết thúc hoặc đã tàn phiên"
+        return result
+
+    # 2. Kiểm tra nếu chưa tải được thông tin chi tiết hoặc bị lỗi mạng/chặn truy cập
+    if info.get("is_fetched") is False:
+        result["decision_code"] = "UNCERTAIN"
+        result["evidence_reason"] = "Không tải được mô tả chi tiết hoặc bị chặn truy cập Yahoo"
+        return result
+
+    if not title:
+        result["decision_code"] = "UNCERTAIN"
+        result["evidence_reason"] = "Không có tiêu đề sản phẩm"
+        return result
+
+    # 2.5. Kiểm tra danh mục ngành hàng Yahoo Auctions (bắt buộc thuộc danh mục Bật lửa 26138 trong Đồ sưu tầm/cổ)
+    cat_path = info.get("category_path")
+    if cat_path and isinstance(cat_path, list):
+        cat_ids = {str(c.get("id")) for c in cat_path if isinstance(c, dict) and c.get("id")}
+        cat_names = [str(c.get("name") or "") for c in cat_path if isinstance(c, dict)]
+        full_cat_str = " > ".join(cat_names)
+
+        # Các ID danh mục bật lửa hợp lệ trên Yahoo Auctions:
+        # 26138 (ライター - Root), 42530 (Zippo), 42531 (一般), 2084037475 (デュポン),
+        # 2084037477 (ダンヒル), 2084037485 (カルティエ), 2084037487 (ロンソン)
+        valid_lighter_cat_ids = {"26138", "42530", "42531", "2084037475", "2084037477", "2084037485", "2084037487"}
+        is_in_lighter_cat = bool(cat_ids & valid_lighter_cat_ids) or ("ライター" in full_cat_str and "喫煙グッズ" in full_cat_str)
+
+        if not is_in_lighter_cat:
+            result["decision_code"] = "NON_LIGHTER"
+            result["evidence_reason"] = f"Sản phẩm thuộc danh mục khác ({full_cat_str or ', '.join(cat_ids)}), không phải danh mục bật lửa Yahoo 26138"
+            return result
+
+    # 3. Loại trừ sản phẩm không phải bật lửa (hàng thời trang, đồng hồ, bút viết, rượu, v.v.)
+    explicit_lighter = bool(re.search(r"(?:ライター|オイルライター|ガスライター|zippo|ジッポ|喫煙具|着火)", title, re.IGNORECASE))
+    if _NON_LIGHTER_EXCLUDE_RE.search(title) and not explicit_lighter:
+        result["decision_code"] = "NON_LIGHTER"
+        result["evidence_reason"] = "Không phải sản phẩm bật lửa (hàng thời trang/đồng hồ/rượu/bút viết/linh kiện khác)"
+        return result
+
+    if not _LIGHTER_INDICATOR_RE.search(title) and not _LIGHTER_INDICATOR_RE.search(description):
+        result["decision_code"] = "NON_LIGHTER"
+        result["evidence_reason"] = "Không tìm thấy dấu hiệu sản phẩm bật lửa trong tiêu đề hoặc mô tả"
+        return result
+
+    # 4. Loại trừ chỉ bán phụ kiện / hộp rỗng / ruột rời
+    is_acc_title = bool(_ACCESSORY_ONLY_RE.search(title)) and not any(k in title for k in ["ライター本体", "オイルライター", "ガスライター"])
+    is_box_or_unit = bool(re.search(r"(?:空箱|箱のみ|ケースのみ|元箱のみ|木箱のみ|インサイドユニット|インナーユニット|ユニットのみ|部品のみ|パーツのみ|ガスボンベ|発火石|フリント|替え芯|ウィック)", title))
+    if is_acc_title or is_box_or_unit or ("空箱" in full_text and not any(k in full_text for k in ["ライター本体", "本ライター", "個ライター"])):
+        m_lighter_attached = re.search(r"(?:ライター\s*(?:本体\s*)?\d+\s*(?:本|個|点)|本体\s*\d+\s*(?:本|個|点))", full_text)
+        if not m_lighter_attached:
+            result["decision_code"] = "ACCESSORY_ONLY"
+            result["evidence_reason"] = "Chỉ bán hộp rỗng, vỏ hộp, ruột hoặc linh kiện rời; không có bật lửa hoàn chỉnh"
+            return result
+
+    # 5. Loại trừ bán chọn 1 món từ ảnh hoặc giá tính theo từng cây
+    if _PER_PIECE_CHOICE_RE.search(full_text):
+        result["decision_code"] = "PER_PIECE_CHOICE"
+        result["evidence_reason"] = "Có nhiều cây để lựa chọn hoặc giá tính riêng theo từng cây, không bán chung cả lot"
+        return result
+
+    # Kiểm tra bán tách lẻ (バラ売り)
+    has_no_split = bool(re.search(r"バラ売り(不可|はできません|はいたしません|NG|しません|出来ません)", full_text))
+    has_split = bool(re.search(r"バラ売り", full_text))
+    if has_split and not has_no_split:
+        result["decision_code"] = "PER_PIECE_CHOICE"
+        result["evidence_reason"] = "Người bán cho phép bán tách lẻ (バラ売り), không bảo đảm bán trọn vẹn cả lot"
+        return result
+
+    # 6. Loại trừ trường hợp ảnh chụp nhiều cây nhưng mô tả nói chỉ bán 1 cây chỉ định
+    if _SINGLE_CHOICE_FROM_PHOTO_RE.search(description) and not any(k in description for k in _LOT_POSITIVE_KEYWORDS):
+        result["decision_code"] = "SINGLE_ITEM"
+        result["evidence_reason"] = "Ảnh chụp nhiều cây nhưng mô tả chỉ bán 1 cây chỉ định"
+        return result
+
+    # 7. Bóc tách số lượng cây bật lửa thực tế
+    count, is_multiple_confirmed, count_note = extract_actual_lighter_count(title, description)
+
+    # 8. Xử lý trường hợp hàng lẻ 1 cây
+    if count == 1:
+        result["decision_code"] = "SINGLE_ITEM"
+        result["evidence_reason"] = "Phiên bán 1 cây bật lửa đơn lẻ (kể cả có kèm hộp, giấy tờ, phụ kiện)"
+        return result
+
+    # Nếu không có số lượng và cũng không có bất kỳ từ khóa lot nào -> Hàng lẻ
+    has_lot_kw = any(k in full_text for k in _LOT_POSITIVE_KEYWORDS)
+    if count is None and not is_multiple_confirmed and not has_lot_kw:
+        result["decision_code"] = "SINGLE_ITEM"
+        result["evidence_reason"] = "Không phát hiện dấu hiệu bán chung từ 2 cây bật lửa trở lên"
+        return result
+
+    # 9. Xử lý trường hợp xác nhận LOT hợp lệ
+    rate = 165
+    if count and count >= 2:
+        result["is_verified_lot"] = True
+        result["decision_code"] = "VERIFIED_LOT"
+        result["lighter_count"] = count
+        result["badge_label"] = f"LOT · {count} cây"
+        result["evidence_reason"] = f"Mô tả xác nhận bán chung {count} bật lửa (giá bid cho cả lot)"
+
+        if price_jpy and price_jpy > 0:
+            result["unit_price_jpy"] = round(price_jpy / count)
+            result["unit_price_vnd"] = round((price_jpy * rate) / count)
+            tot_jpy = price_jpy + (shipping_fee_jpy or 0)
+            result["unit_cost_with_ship_jpy"] = round(tot_jpy / count)
+            result["unit_cost_with_ship_vnd"] = round((tot_jpy * rate) / count)
+        return result
+
+    if count is None and is_multiple_confirmed:
+        # Xác nhận rõ bán nhiều cây nhưng chưa đếm được số cây cụ thể
+        result["is_verified_lot"] = True
+        result["decision_code"] = "VERIFIED_LOT"
+        result["lighter_count"] = None
+        result["badge_label"] = "LOT · Nhiều cây (Chưa rõ số lượng)"
+        result["evidence_reason"] = "Mô tả xác nhận bán chung nhiều bật lửa (chưa rõ số lượng cụ thể)"
+        return result
+
+    # 10. Mọi trường hợp mơ hồ còn lại
+    result["decision_code"] = "UNCERTAIN"
+    result["evidence_reason"] = "Chưa đủ bằng chứng xác thực bán chung từ 2 cây bật lửa trở lên"
+    return result
+
+
+def analyze_lot_quantity(title: str, description: str = "", price_jpy: int | None = None, shipping_fee_jpy: int | None = None) -> dict[str, Any]:
+    """Phân tích số lượng cây quẹt trong Lô (Lot / Bulk / Set) và tính đơn giá bình quân."""
+    ver = verify_yahoo_lighter_lot({
+        "title": title,
+        "description": description,
+        "current_price_jpy": price_jpy,
+        "shipping_fee_jpy": shipping_fee_jpy,
+        "status": "open",
+        "bids": 1,
+    })
+    return {
+        "is_lot": ver["is_verified_lot"],
+        "count": ver["lighter_count"],
+        "unit_price_jpy": ver["unit_price_jpy"],
+        "unit_price_vnd": ver["unit_price_vnd"],
+        "unit_cost_with_ship_jpy": ver["unit_cost_with_ship_jpy"],
+        "unit_cost_with_ship_vnd": ver["unit_cost_with_ship_vnd"],
+        "decision_code": ver["decision_code"],
+        "evidence_reason": ver["evidence_reason"],
+        "badge_label": ver["badge_label"],
+    }
+
 
 
 def deep_analyze_yahoo_auction(info: dict[str, Any]) -> dict[str, Any]:

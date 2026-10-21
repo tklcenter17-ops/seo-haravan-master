@@ -5,7 +5,8 @@ import csv
 import io
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from models import BidCap, Draft, Record, RecordRevision, utc_now_iso
@@ -552,6 +553,16 @@ def add_auction_alarm(
         return cur.lastrowid or 0
 
 
+def has_auction_alarm(conn: sqlite3.Connection, auction_id: str, chat_id: int) -> bool:
+    """Kiểm tra xem lô này đã được đặt báo thức cho chat_id chưa."""
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT 1 FROM auction_alarms WHERE auction_id = ? AND chat_id = ? LIMIT 1;",
+        (auction_id, chat_id),
+    )
+    return cur.fetchone() is not None
+
+
 def get_pending_alarms(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Lấy danh sách các báo thức hẹn giờ chưa gửi."""
     cur = conn.cursor()
@@ -698,4 +709,169 @@ def set_radar_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
             """,
             (key, value, now_iso),
         )
+
+
+def get_exchange_rate(conn: sqlite3.Connection, default: int = 165) -> int:
+    """Lấy tỷ giá JPY sang VND (mặc định 165)."""
+    val = get_radar_setting(conn, "exchange_rate_jpy_vnd", default=str(default))
+    try:
+        r = int(val)
+        return r if r > 0 else default
+    except (ValueError, TypeError):
+        return default
+
+
+def set_exchange_rate(conn: sqlite3.Connection, rate: int) -> None:
+    """Lưu tỷ giá JPY sang VND."""
+    set_radar_setting(conn, "exchange_rate_jpy_vnd", str(rate))
+
+
+def save_lot_audit_log(
+    conn: sqlite3.Connection,
+    auction_id: str,
+    title: str,
+    decision_code: str,
+    lighter_count: int | None = None,
+    condition_label: str = "",
+    brands: str = "",
+    evidence_reason: str = "",
+    price_jpy: int = 0,
+    bids: int = 0,
+    end_time: str = "",
+    url: str = "",
+    image_url: str = "",
+) -> None:
+    """Lưu vết phân loại kiểm toán của một phiên đấu Yahoo."""
+    now_iso = utc_now_iso()
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO yahoo_lot_audit_log (
+                auction_id, title, decision_code, lighter_count, condition_label,
+                brands, evidence_reason, price_jpy, bids, end_time, url, image_url, scanned_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                auction_id, title, decision_code, lighter_count, condition_label,
+                brands, evidence_reason, price_jpy, bids, end_time, url, image_url, now_iso
+            ),
+        )
+
+
+def get_lot_audit_logs(
+    conn: sqlite3.Connection,
+    decision_code: str | None = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Truy vấn danh sách audit log các phiên Yahoo đã phân loại."""
+    cur = conn.cursor()
+    if decision_code:
+        cur.execute(
+            """
+            SELECT * FROM yahoo_lot_audit_log
+            WHERE decision_code = ?
+            ORDER BY scanned_at DESC, id DESC
+            LIMIT ?;
+            """,
+            (decision_code, limit),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT * FROM yahoo_lot_audit_log
+            ORDER BY scanned_at DESC, id DESC
+            LIMIT ?;
+            """,
+            (limit,),
+        )
+    rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_lot_audit_stats(conn: sqlite3.Connection) -> dict[str, int]:
+    """Thống kê tổng quan các ca audit theo từng decision_code."""
+    cur = conn.cursor()
+    cur.execute("SELECT decision_code, COUNT(*) as cnt FROM yahoo_lot_audit_log GROUP BY decision_code;")
+    stats: dict[str, int] = {}
+    total = 0
+    for r in cur.fetchall():
+        code = str(r["decision_code"])
+        cnt = int(r["cnt"])
+        stats[code] = cnt
+        total += cnt
+    stats["total"] = total
+    return stats
+
+
+def prune_old_radar_data(
+    conn: sqlite3.Connection,
+    retention_days: int = 3,
+) -> dict[str, int]:
+    """Xóa an toàn các dữ liệu link radar, audit logs, báo thức và tracking cũ hơn retention_days ngày.
+    
+    Giúp giảm dung lượng SQLite, tối ưu hiệu năng Dashboard Admin và giải phóng RAM/Disk VPS.
+    Tuyệt đối bảo toàn 100% dữ liệu kho quẹt (records), trần bid (bid_caps), revisions.
+    """
+    if retention_days < 1:
+        retention_days = 1
+
+    now_utc = datetime.now(timezone.utc)
+    threshold_dt = now_utc - timedelta(days=retention_days)
+    threshold_iso = threshold_dt.isoformat()
+    # Mốc ngày Việt Nam YYYY-MM-DD
+    threshold_date_vn = (now_utc.astimezone(timezone(timedelta(hours=7))) - timedelta(days=retention_days)).strftime("%Y-%m-%d")
+    threshold_ts = threshold_dt.timestamp()
+
+    result = {
+        "audit_logs": 0,
+        "seen_lots": 0,
+        "alarms": 0,
+        "processed_updates": 0,
+        "total": 0,
+    }
+
+    cur = conn.cursor()
+    with conn:
+        # 1. Dọn bảng audit logs cũ
+        cur.execute("DELETE FROM yahoo_lot_audit_log WHERE scanned_at < ?;", (threshold_iso,))
+        result["audit_logs"] = cur.rowcount if cur.rowcount > 0 else 0
+
+        # 2. Dọn bảng link radar đã quét cũ
+        cur.execute("DELETE FROM radar_seen_lots WHERE seen_date < ? OR sent_at < ?;", (threshold_date_vn, threshold_iso))
+        result["seen_lots"] = cur.rowcount if cur.rowcount > 0 else 0
+
+        # 3. Dọn bảng báo thức đã gửi xong cũ
+        cur.execute("DELETE FROM auction_alarms WHERE is_sent = 1 AND trigger_at_ts < ?;", (threshold_ts,))
+        result["alarms"] = cur.rowcount if cur.rowcount > 0 else 0
+
+        # 4. Dọn bảng processed_updates cũ
+        cur.execute("DELETE FROM processed_updates WHERE received_at < ?;", (threshold_iso,))
+        result["processed_updates"] = cur.rowcount if cur.rowcount > 0 else 0
+
+    result["total"] = (
+        result["audit_logs"]
+        + result["seen_lots"]
+        + result["alarms"]
+        + result["processed_updates"]
+    )
+    return result
+
+
+def vacuum_database(conn: sqlite3.Connection) -> None:
+    """Thực thi VACUUM để SQLite thu hồi dung lượng đĩa thực tế sau khi xóa dữ liệu.
+    
+    Lưu ý: Phải commit transaction trước khi chạy VACUUM.
+    """
+    conn.commit()
+    conn.execute("VACUUM;")
+
+
+def get_db_file_size_bytes(db_path: Path | str) -> int:
+    """Lấy kích thước file database theo bytes."""
+    try:
+        return Path(db_path).stat().st_size
+    except OSError:
+        return 0
+
 

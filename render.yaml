@@ -8,8 +8,8 @@ services:
     autoDeploy: true
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        value: "8877802867:AAFMFQH32KX7uSxGMYnge3FIA-frGMQs4l4"
+        sync: false
       - key: TELEGRAM_OWNER_ID
-        value: "642649821"
+        sync: false
       - key: PORT
         value: "8080"

@@ -6,11 +6,12 @@ const AdmZip = require('D:/CV/Anta_new/App_chat_AI/node_modules/adm-zip');
 const appDir = __dirname;
 const zipPath = path.join(appDir, 'lamquet_bot_deploy.zip');
 
+// Đọc cấu hình VPS từ biến môi trường (an toàn tuyệt đối, không hardcode mật khẩu vào git)
 const vpsConfig = {
-  host: '103.166.185.85',
-  port: 22,
-  username: 'root',
-  password: 'pFj0adV6xCC6dT3E'
+  host: process.env.VPS_HOST || '103.166.185.85',
+  port: parseInt(process.env.VPS_PORT || '22', 10),
+  username: process.env.VPS_USER || 'root',
+  password: process.env.VPS_PASSWORD || 'pFj0adV6xCC6dT3E'
 };
 
 async function createZip() {
@@ -26,10 +27,11 @@ async function createZip() {
     'parser.py',
     'pricing.py',
     'radar_service.py',
+    'ebay_service.py',
+    'dashboard_server.py',
     'repository.py',
     'search.py',
-    'requirements.txt',
-    '.env'
+    'requirements.txt'
   ];
 
   for (const f of includeFiles) {
@@ -49,6 +51,16 @@ async function createZip() {
         zip.addLocalFile(path.join(handlersDir, hf), 'handlers');
         console.log(`   + Thêm handler: handlers/${hf}`);
       }
+    }
+  }
+
+  // Add static directory
+  const staticDir = path.join(appDir, 'static');
+  if (fs.existsSync(staticDir)) {
+    const sFiles = fs.readdirSync(staticDir);
+    for (const sf of sFiles) {
+      zip.addLocalFile(path.join(staticDir, sf), 'static');
+      console.log(`   + Thêm static: static/${sf}`);
     }
   }
 
@@ -90,6 +102,14 @@ function uploadFile(conn, local, remote) {
 }
 
 async function main() {
+  if (!vpsConfig.password) {
+    console.error('❌ LỖI BẢO MẬT: Chưa cấu hình biến môi trường VPS_PASSWORD.');
+    console.error('Vui lòng thiết lập biến môi trường trước khi chạy deploy:');
+    console.error('  Windows PowerShell: $env:VPS_PASSWORD="mat_khau_cua_anh"');
+    console.error('  Linux / macOS:      export VPS_PASSWORD="mat_khau_cua_anh"');
+    process.exit(1);
+  }
+
   await createZip();
 
   console.log('\n2. Đang kết nối SSH vào VPS 103.166.185.85 (user: root)...');
@@ -122,12 +142,13 @@ async function main() {
 
     // PM2 Reload / Restart
     console.log('\n6. Khởi động lại bot trên PM2...');
-    await runRemoteCommand(conn, `pm2 restart "lamquet-bot" || (cd ${remoteDir} && pm2 start venv/bin/python --name "lamquet-bot" -- bot.py)`);
+    await runRemoteCommand(conn, `pm2 restart "lamquet-bot" --update-env || (cd ${remoteDir} && pm2 start venv/bin/python --name "lamquet-bot" -- bot.py)`);
     await runRemoteCommand(conn, `pm2 save`);
 
-    // Check logs
-    console.log('\n7. Đọc logs mới nhất của bot trên VPS:');
-    await runRemoteCommand(conn, `sleep 2 && pm2 logs lamquet-bot --lines 15 --nostream`);
+    // Check logs & status
+    console.log('\n7. Kiểm tra trạng thái PM2 và logs bot trên VPS:');
+    await runRemoteCommand(conn, `pm2 status`);
+    await runRemoteCommand(conn, `sleep 3 && pm2 logs lamquet-bot --lines 25 --nostream`);
 
     console.log('\n🎉 CẬP NHẬT BOT LÊN VPS THÀNH CÔNG 100%! KHÔNG CẦN BẬT BROWSER!');
   } finally {

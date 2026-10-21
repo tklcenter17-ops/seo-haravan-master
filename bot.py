@@ -18,11 +18,18 @@ from telegram.ext import (
 )
 
 from config import AppConfig, load_config, save_owner_id_to_env
+from dashboard_server import start_dashboard_server
 from db import get_db_connection, init_database
-from handlers.admin import cancel_command, export_command, stats_command
+from handlers.admin import cancel_command, clean_command, export_command, rate_command, stats_command
 from handlers.caps import cap_callback, cap_command
 from handlers.data_entry import data_command, draft_callback, price_draft_callback
-from handlers.radar_handlers import radar_callback_handler, radar_command
+from handlers.ebay_handlers import ebay_callback_handler, radarebay_command
+from handlers.radar_handlers import (
+    img_detail_command,
+    radar_callback_handler,
+    radar_command,
+    radar_img_command,
+)
 from handlers.record_mgmt import (
     delete_command,
     donlo_command,
@@ -147,82 +154,77 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def post_init(application: Application) -> None:
-    """Tự động khôi phục các báo thức hẹn giờ canh tàn phiên khi bot khởi động lại."""
+    """Tự động khởi động các worker chạy nền an toàn (Báo thức đấu giá & Radar tự động)."""
     cfg = application.bot_data.get("config")
     if not cfg:
         return
-    conn = get_db_connection(cfg.db_path)
-    try:
-        from repository import get_pending_alarms, mark_alarm_sent
-        alarms = get_pending_alarms(conn)
-        if not alarms:
-            return
 
-        import asyncio
+    import asyncio
+
+    # 1. Vòng lặp kiểm tra báo thức đấu giá định kỳ mỗi 60 giây (bền bỉ, an toàn khi restart)
+    async def _alarm_poller_loop():
         import time
-        now = time.time()
-        logger.info(f"Phát hiện {len(alarms)} báo thức phiên đấu cần phục hồi...")
+        from repository import get_pending_alarms, mark_alarm_sent
 
-        db_path = cfg.db_path
-
-        def _safe_mark_sent(aid: int) -> None:
-            c = get_db_connection(db_path)
+        logger.info("Đã kích hoạt vòng lặp Poller giám sát báo thức tàn phiên đấu giá (chu kỳ 60s).")
+        while True:
             try:
-                mark_alarm_sent(c, aid)
-            except Exception:
-                pass
-            finally:
-                c.close()
+                now = time.time()
+                conn = get_db_connection(cfg.db_path)
+                alarms = []
+                try:
+                    alarms = get_pending_alarms(conn)
+                finally:
+                    conn.close()
 
-        for a in alarms:
-            alarm_id = a["id"]
-            chat_id = a["chat_id"]
-            title = a["title"]
-            price = a["price_jpy"]
-            url = a["url"]
-            auc_id = a["auction_id"]
-            trigger_at = a["trigger_at_ts"]
-            wait_secs = trigger_at - now
+                for a in alarms:
+                    alarm_id = a["id"]
+                    chat_id = a["chat_id"]
+                    trigger_at = a["trigger_at_ts"]
+                    if trigger_at <= now:
+                        title = a["title"]
+                        price = a["price_jpy"]
+                        url = a["url"]
+                        auc_id = a["auction_id"]
+                        price_str = f"{price:,}Y".replace(",", ".") if price else "chưa cập nhật"
+                        alert_msg = (
+                            f"🚨 <b>Lô hot [{title}] chỉ còn đúng 15 phút nữa hết giờ!</b>\n"
+                            f"⚡ Giá hiện tại: <b>{price_str}</b>. Vào snipe ngay kẻo vuột!\n"
+                            f"👉 <a href='https://buyee.jp/item/yahoo/auction/{auc_id}?lang=vi'>🛒 Mở Buyee để Snipe</a> | <a href='{url}'>Mở Yahoo</a>"
+                        )
+                        try:
+                            await application.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
+                        except Exception as send_err:
+                            logger.warning(f"Không thể gửi báo thức {alarm_id}: {send_err}")
 
-            p_text = f" (Giá hiện tại: {price:,} yên)".replace(",", ".") if price else ""
-            alert_msg = (
-                f"🚨 <b>BÁO ĐỘNG TÀN PHIÊN (CÒN 15 PHÚT NỮA HẾT GIỜ)!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📦 Cây: <b>{title}</b>\n"
-                f"⚡ {p_text}\n"
-                f"👉 <a href='{url}'>Mở Yahoo</a> | <a href='https://buyee.jp/item/yahoo/auction/{auc_id}?lang=vi'>Mở Buyee để Snipe</a>\n\n"
-                f"<i>Vào đặt bid ngay kẻo vuột cây ngon anh nhé!</i>"
-            )
+                        c = get_db_connection(cfg.db_path)
+                        try:
+                            mark_alarm_sent(c, alarm_id)
+                        finally:
+                            c.close()
+            except Exception as loop_err:
+                logger.error(f"Lỗi trong vòng lặp báo thức poller: {loop_err}")
 
-            if wait_secs <= 0:
-                async def _send_past(cid=chat_id, aid=alarm_id, msg=alert_msg):
-                    try:
-                        await application.bot.send_message(chat_id=cid, text=msg, parse_mode="HTML")
-                    except Exception:
-                        pass
-                    _safe_mark_sent(aid)
+            await asyncio.sleep(60)
 
-                asyncio.create_task(_send_past())
-            else:
-                async def _send_future(delay=wait_secs, cid=chat_id, aid=alarm_id, msg=alert_msg):
-                    await asyncio.sleep(delay)
-                    try:
-                        await application.bot.send_message(chat_id=cid, text=msg, parse_mode="HTML")
-                    except Exception:
-                        pass
-                    _safe_mark_sent(aid)
+    asyncio.create_task(_alarm_poller_loop())
 
-                asyncio.create_task(_send_future())
-    finally:
-        conn.close()
-
-    # Khởi động vòng lặp Radar tự động quét các lô bật lửa có bid kết thúc hôm nay
+    # 2. Khởi động vòng lặp Radar: Quét ngầm, Auto-Alarm 15p Top Lô & Điểm Tin Giờ Vàng (11:30 & 20:30)
     async def _radar_worker_loop():
-        await asyncio.sleep(120)  # Đợi bot ổn định 2 phút sau khi khởi động, nhường đường truyền cho người dùng chat
+        await asyncio.sleep(60)  # Đợi bot ổn định 1 phút sau khi khởi động
         from datetime import datetime, timezone, timedelta
-        from radar_service import format_radar_message, scan_today_lighter_lots
-        from repository import get_radar_setting, is_lot_seen, mark_lot_seen
+        from radar_service import scan_today_lighter_lots, curate_top_radar_lots, format_curated_top_radar_message
+        from repository import (
+            get_radar_setting,
+            set_radar_setting,
+            is_lot_seen,
+            mark_lot_seen,
+            add_auction_alarm,
+            has_auction_alarm,
+            get_exchange_rate,
+        )
 
+        logger.info("Đã kích hoạt vòng lặp Radar: Quét ngầm, Auto-Alarm 15p Top Lô & Điểm Tin Giờ Vàng (chu kỳ 10 phút).")
         while True:
             try:
                 owner_id = cfg.owner_id
@@ -231,13 +233,18 @@ async def post_init(application: Application) -> None:
                     try:
                         is_enabled = (get_radar_setting(c, "auto_radar_enabled", default="1") == "1")
                         if is_enabled:
-                            today_vn = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+                            now_vn = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7)))
+                            today_vn = now_vn.strftime("%Y-%m-%d")
+                            hour_vn = now_vn.hour
+                            min_vn = now_vn.minute
+                            rate = get_exchange_rate(c)
+
                             lots = await scan_today_lighter_lots()
-                            new_lots = []
+
+                            # 1. Đánh dấu các lô đã thấy vào SQLite & Gửi thông báo tức thì (Realtime Alert)
                             for lot in lots:
                                 aid = lot.get("auction_id")
                                 if aid and not is_lot_seen(c, aid, today_vn):
-                                    new_lots.append(lot)
                                     mark_lot_seen(
                                         c,
                                         aid,
@@ -248,37 +255,172 @@ async def post_init(application: Application) -> None:
                                         lot.get("end_time", ""),
                                     )
 
-                            if new_lots:
-                                logger.info(f"Radar tự động phát hiện {len(new_lots)} lô bật lửa mới kết thúc hôm nay.")
-                                from radar_service import format_radar_chunks
-                                chunks = format_radar_chunks(new_lots, chunk_size=8)
-                                for chunk in chunks:
+                                    # Báo tin nhắn lô mới phát hiện về Telegram
+                                    price = lot.get("price_jpy", 0)
+                                    price_vnd = round(price * rate)
+                                    title = lot.get("title", "Lô bật lửa")
+                                    bids = lot.get("bids", 0)
+                                    remain_str = lot.get("remain_text", "Hôm nay")
+                                    lot_tag = lot.get("lot_type_tag", "[LOT BẬT LỬA]")
+                                    lot_icon = lot.get("lot_type_icon", "🎯")
+                                    y_url = lot.get("url") or f"https://auctions.yahoo.co.jp/jp/auction/{aid}"
+                                    buyee_url = f"https://buyee.jp/item/yahoo/auction/{aid}?lang=vi"
+                                    photo = lot.get("image_url", "")
+
+                                    alert_text = (
+                                        f"{lot_icon} <b>[YAHOO RADAR] {lot_tag} PHÁT HIỆN LÔ MỚI</b>\n"
+                                        f"━━━━━━━━━━━━━━━━━━━━━\n"
+                                        f"📦 <b>{title}</b>\n"
+                                        f"💰 Giá sàn: <b>{price:,} yên</b> (~{price_vnd:,} đ) | 🔨 Bids: <b>{bids}</b>\n"
+                                        f"⏳ Thời gian: <b>{remain_str}</b>\n"
+                                        f"👉 <a href='{buyee_url}'>🛒 Mở Buyee Đấu Giá</a> | <a href='{y_url}'>Mở Yahoo Auctions</a>\n"
+                                        f"🔗 <code>{y_url}</code>\n"
+                                        f"📸 Soi ảnh: /img_{aid} | 💡 Lưu: <code>/data #{aid}</code>"
+                                    ).replace(",", ".")
+
+                                    try:
+                                        if photo and photo.startswith("http"):
+                                            await application.bot.send_photo(
+                                                chat_id=owner_id,
+                                                photo=photo,
+                                                caption=alert_text,
+                                                parse_mode="HTML",
+                                            )
+                                        else:
+                                            await application.bot.send_message(
+                                                chat_id=owner_id,
+                                                text=alert_text,
+                                                parse_mode="HTML",
+                                                disable_web_page_preview=False,
+                                            )
+                                        await asyncio.sleep(1.5)
+                                    except Exception as send_lot_err:
+                                        logger.warning(f"Lỗi gửi tin lô mới {aid}: {send_lot_err}")
+
+                            # 2. Tự động đặt báo thức ngầm 15 phút cho Top 3 lô hot nhất trong ngày (Auto-Alarm Top Lô)
+                            top_alarm_lots = curate_top_radar_lots(lots, max_items=3)
+                            now_ts = time.time()
+                            for hot_lot in top_alarm_lots:
+                                aid = hot_lot.get("auction_id")
+                                rem_mins = hot_lot.get("remain_mins", 0)
+                                if aid and rem_mins > 15:
+                                    if not has_auction_alarm(c, aid, owner_id):
+                                        trigger_at = now_ts + (rem_mins - 15) * 60
+                                        add_auction_alarm(
+                                            conn=c,
+                                            auction_id=aid,
+                                            chat_id=owner_id,
+                                            title=hot_lot.get("title", "Lô bật lửa"),
+                                            price_jpy=hot_lot.get("price_jpy", 0),
+                                            url=f"https://auctions.yahoo.co.jp/jp/auction/{aid}",
+                                            end_time_iso=hot_lot.get("end_time", ""),
+                                            trigger_at_ts=trigger_at,
+                                        )
+                                        logger.info(f"Đã tự động đặt báo thức ngầm 15 phút cho lô hot {aid}: {hot_lot.get('title')} (còn {rem_mins}p)")
+
+                            # 3. Chế Độ 'Điểm Tin Giờ Vàng' (Daily Curated Briefing): Đúng 2 khung giờ
+                            # Khung 1: 11:30 Trưa (Điểm danh các lô sáng mới lên sàn có bids tốt)
+                            is_noon_window = (hour_vn == 11 and min_vn >= 30) or (hour_vn == 12 and min_vn <= 15)
+                            noon_key = f"briefing_noon_{today_vn}"
+                            if is_noon_window and get_radar_setting(c, noon_key, default="0") != "1":
+                                top_picks = curate_top_radar_lots(lots, max_items=4)
+                                if top_picks:
+                                    header = f"☀️ <b>[ĐIỂM TIN GIỜ VÀNG 11:30] TOP LÔ SÁNG NAY CÓ BIDS TỐT</b>"
+                                    digest_msg = format_curated_top_radar_message(
+                                        top_picks,
+                                        total_scanned=len(lots),
+                                        rate=rate,
+                                        header_title=header,
+                                    )
                                     try:
                                         await application.bot.send_message(
                                             chat_id=owner_id,
-                                            text=f"🚨 <b>[TỰ ĐỘNG BÁO LÔ MỚI]</b>\n{chunk}",
+                                            text=digest_msg,
                                             parse_mode="HTML",
                                             disable_web_page_preview=True,
                                         )
-                                        await asyncio.sleep(2.0)  # Giãn cách 2 giây giữa các chunk để chống flood rate limit
+                                        set_radar_setting(c, noon_key, "1")
+                                        logger.info(f"Đã gửi Bản tin Giờ Vàng 11:30 ngày {today_vn}.")
                                     except Exception as send_err:
-                                        logger.warning(f"Lỗi gửi tin nhắn radar: {send_err}")
+                                        logger.warning(f"Lỗi gửi tin nhắn điểm tin trưa: {send_err}")
+
+                            # Khung 2: 20:30 Tối (Tổng hợp các lô chuẩn bị tàn phiên đêm nay của sàn Nhật: 21h - 23h)
+                            is_night_window = (hour_vn == 20 and min_vn >= 30) or (hour_vn == 21 and min_vn <= 15)
+                            night_key = f"briefing_night_{today_vn}"
+                            if is_night_window and get_radar_setting(c, night_key, default="0") != "1":
+                                # Lọc các lô sắp kết thúc đêm nay (còn trong khoảng 30 đến 240 phút)
+                                night_lots = [l for l in lots if 0 < l.get("remain_mins", 9999) <= 240]
+                                top_night = curate_top_radar_lots(night_lots if night_lots else lots, max_items=4)
+                                if top_night:
+                                    header = f"🌙 <b>[ĐIỂM TIN GIỜ VÀNG 20:30] CÁC LÔ SẮP TÀN PHIÊN ĐÊM NAY (CHUẨN BỊ SNIPE)</b>"
+                                    digest_msg = format_curated_top_radar_message(
+                                        top_night,
+                                        total_scanned=len(lots),
+                                        rate=rate,
+                                        header_title=header,
+                                    )
+                                    try:
+                                        await application.bot.send_message(
+                                            chat_id=owner_id,
+                                            text=digest_msg,
+                                            parse_mode="HTML",
+                                            disable_web_page_preview=True,
+                                        )
+                                        set_radar_setting(c, night_key, "1")
+                                        logger.info(f"Đã gửi Bản tin Giờ Vàng 20:30 ngày {today_vn}.")
+                                    except Exception as send_err:
+                                        logger.warning(f"Lỗi gửi tin nhắn điểm tin tối: {send_err}")
+
                     finally:
                         c.close()
             except Exception as loop_err:
                 logger.error(f"Lỗi trong vòng lặp Radar worker: {loop_err}", exc_info=True)
 
-            # Quét định kỳ mỗi 30 phút (1800 giây)
-            await asyncio.sleep(1800)
+            # Quét định kỳ mỗi 10 phút (600 giây) để bắt chuẩn khung giờ và kịp đặt báo thức 15 phút
+            await asyncio.sleep(600)
 
-    # Tắt tạm worker loop tự động chạy nền để tránh xung đột rate limit Telegram khi khởi động
-    # asyncio.create_task(_radar_worker_loop())
+    # Bật worker loop tự động chạy nền với cơ chế chống spam
+    asyncio.create_task(_radar_worker_loop())
+
+
+    # 4. Khởi động vòng lặp tự động dọn dẹp link radar và audit logs cũ quá 3 ngày (chu kỳ 24h)
+    async def _auto_clean_worker_loop():
+        await asyncio.sleep(300)  # Đợi 5 phút sau khi khởi động bot
+        from repository import prune_old_radar_data, vacuum_database
+
+        logger.info("Đã kích hoạt vòng lặp tự động dọn dẹp dữ liệu cũ quá 3 ngày (chu kỳ 24 giờ).")
+        while True:
+            try:
+                c = get_db_connection(cfg.db_path)
+                try:
+                    res = prune_old_radar_data(c, retention_days=3)
+                    if res["total"] > 0:
+                        vacuum_database(c)
+                        logger.info(
+                            f"🧹 Auto-Clean hoàn tất: Đã xóa {res['total']} bản ghi cũ quá 3 ngày "
+                            f"(audit_logs={res['audit_logs']}, seen_lots={res['seen_lots']}, "
+                            f"alarms={res['alarms']}, updates={res['processed_updates']})."
+                        )
+                finally:
+                    c.close()
+            except Exception as clean_err:
+                logger.error(f"Lỗi trong vòng lặp auto-clean: {clean_err}")
+
+            # Chạy định kỳ mỗi 24 giờ (86400 giây)
+            await asyncio.sleep(86400)
+
+    asyncio.create_task(_auto_clean_worker_loop())
 
     # Đăng ký danh sách lệnh trực quan vào nút Menu chuẩn của Telegram
     try:
         from telegram import BotCommand
         await application.bot.set_my_commands([
             BotCommand("radar", "🎯 Quét các lô bật lửa có bid hôm nay"),
+            BotCommand("radar_img", "🖼️ Lướt album ảnh lô hot hôm nay"),
+            BotCommand("radarebay", "🦅 Radar đấu giá eBay kết thúc sáng mai"),
+            BotCommand("dashboard", "📱 Mở WebApp Dashboard trực quan"),
+            BotCommand("rate", "💴 Xem & đổi tỷ giá JPY/VND"),
+            BotCommand("clean", "🧹 Dọn link radar & audit cũ > 3 ngày"),
             BotCommand("menu", "🎛 Bật bảng menu bàn phím bấm nhanh"),
             BotCommand("donlo", "📦 Quản lý dọn lô & phân bổ vốn"),
             BotCommand("recent", "📋 10 bản ghi gần nhất"),
@@ -288,6 +430,38 @@ async def post_init(application: Application) -> None:
         logger.info("Đã đăng ký danh sách lệnh nhanh cho Telegram Bot Menu.")
     except Exception as cmd_err:
         logger.warning(f"Không thể cập nhật set_my_commands: {cmd_err}")
+
+
+async def dashboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Mở Mini WebApp Dashboard trực quan."""
+    import os
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+    port = int(os.environ.get("PORT", 8989))
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("DASHBOARD_URL")
+    if not webapp_url:
+        webapp_url = f"http://103.166.185.85:{port}/dashboard"
+
+    keyboard = []
+    if webapp_url.startswith("https://"):
+        keyboard.append([
+            InlineKeyboardButton("📱 Mở Bảng Điều Khiển WebApp", web_app=WebAppInfo(url=webapp_url))
+        ])
+    keyboard.append([
+        InlineKeyboardButton("🌐 Mở Trên Trình Duyệt Web", url=webapp_url)
+    ])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    msg = (
+        "👑 <b>BẢNG ĐIỀU KHIỂN VAULT TRỰC QUAN (WEBAPP DASHBOARD)</b>\n\n"
+        "✨ Khám phá toàn bộ dữ liệu kho quẹt & radar qua giao diện luxury đen vàng:\n"
+        "• <b>Thẻ hình ảnh (Card Grid)</b>: Chi tiết từng cây Dupont, Dunhill, Zippo...\n"
+        "• <b>Thống kê danh mục & Tỷ trọng</b>: Dupont / Dunhill / Zippo trực quan\n"
+        "• <b>Live Radar & Đồng hồ đếm ngược</b>: Canh đấu giá theo thời gian thực!\n\n"
+        f"🔗 <b>Đường dẫn:</b> <code>{webapp_url}</code>"
+    )
+    if update.effective_message:
+        await update.effective_message.reply_html(msg, reply_markup=reply_markup)
 
 
 def _start_health_check_server(port: int) -> None:
@@ -318,13 +492,12 @@ def main() -> None:
     import os
     config = load_config()
 
-    # Nếu chạy trên Cloud (Render, Koyeb...) có biến PORT thì mở health check endpoint
-    port_env = os.environ.get("PORT")
-    if port_env:
-        try:
-            _start_health_check_server(int(port_env))
-        except ValueError:
-            pass
+    # Khởi động WebApp Dashboard & Health Check server (hỗ trợ Render, Koyeb, Localhost, VPS)
+    port_env = os.environ.get("PORT", "8989")
+    try:
+        start_dashboard_server(config, int(port_env))
+    except Exception as srv_err:
+        logger.warning(f"Không thể khởi động WebApp Dashboard server trên cổng {port_env}: {srv_err}")
 
     if not config.bot_token:
         print("LỖI: Chưa thiết lập TELEGRAM_BOT_TOKEN trong file .env hoặc biến môi trường.", file=sys.stderr)
@@ -376,9 +549,17 @@ def main() -> None:
     app.add_handler(CommandHandler("donlo", donlo_command))
     app.add_handler(CommandHandler("menu", menu_command))
     app.add_handler(CommandHandler(["radar", "radar_lot"], radar_command))
+    app.add_handler(CommandHandler(["radar_img", "album"], radar_img_command))
+    app.add_handler(CommandHandler("img", img_detail_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/img_[a-zA-Z0-9]+"), img_detail_command))
+    app.add_handler(CommandHandler("rate", rate_command))
+    app.add_handler(CommandHandler(["clean", "prune"], clean_command))
+    app.add_handler(CommandHandler("dashboard", dashboard_command))
+    app.add_handler(CommandHandler("radarebay", radarebay_command))
 
     # Đăng ký Callback Handlers
     app.add_handler(CallbackQueryHandler(radar_callback_handler, pattern=r"^radar_"))
+    app.add_handler(CallbackQueryHandler(ebay_callback_handler, pattern=r"^ebay_"))
     app.add_handler(CallbackQueryHandler(draft_callback, pattern=r"^box_draft:"))
     app.add_handler(CallbackQueryHandler(price_draft_callback, pattern=r"^(price_draft:|price_cancel:)"))
     app.add_handler(CallbackQueryHandler(quick_add_callback, pattern=r"^quick_add:"))

@@ -4,3 +4,6 @@ __pycache__/
 .env
 data/
 backups/
+*.zip
+lamquet_bot_deploy.zip
+.ponytail-backup/

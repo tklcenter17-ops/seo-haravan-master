@@ -213,8 +213,9 @@ async def donlo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             if lots:
                 lines.append("📋 <b>Các lô quẹt trong kho gần đây:</b>")
                 keyboard = []
+                from repository import get_exchange_rate
+                rate = get_exchange_rate(conn)
                 for l in lots:
-                    rate = 165
                     tot_vnd = round((l["amount_jpy"] + (l["fee_jpy"] or 0)) * rate)
                     tot_vnd_fmt = f"{tot_vnd:,}".replace(",", ".")
                     lines.append(f"• <b>#{l['id']}</b>: <i>{l['display_name']}</i> (~{tot_vnd_fmt} đ)")

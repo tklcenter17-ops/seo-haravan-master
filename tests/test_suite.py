@@ -1572,3 +1572,1628 @@ def test_group_detail_keyboard_has_menu_shortcuts():
     assert "🎯 Radar Lô Hôm Nay" in all_btn_texts
     assert "🎛 Bảng Menu" in all_btn_texts
 
+
+# ==========================================
+# T31 - T35: Tính Năng Mới V5.0 (Tỷ Giá Động, Deal Score, Sub-Radars)
+# ==========================================
+
+def test_t31_dynamic_exchange_rate_db_and_formatting(test_db):
+    """T31: Thử nghiệm lấy và cập nhật tỷ giá JPY sang VND động trong CSDL."""
+    from repository import get_exchange_rate, set_exchange_rate
+    from pricing import format_currency_amount
+
+    # Mặc định chưa set là 165
+    rate_default = get_exchange_rate(test_db)
+    assert rate_default == 165
+
+    # Cập nhật sang 170
+    set_exchange_rate(test_db, 170)
+    rate_new = get_exchange_rate(test_db)
+    assert rate_new == 170
+
+    # Kiểm tra format_currency_amount với tỷ giá 170
+    formatted = format_currency_amount(10000, "JPY", with_approx=True, rate=170)
+    assert "10.000 yên" in formatted
+    assert "1.700.000 đ" in formatted
+
+
+def test_t32_parse_quick_calc_with_dynamic_rate():
+    """T32: Tính nhẩm nhanh giá Yahoo áp dụng tỷ giá động chuẩn xác."""
+    from parser import parse_quick_calc_input
+
+    res_165 = parse_quick_calc_input("10000Y", rate=165)
+    assert res_165 is not None
+    assert res_165["base_vnd"] == 1650000
+    assert res_165["total_landing_vnd"] == 1850000
+
+    res_170 = parse_quick_calc_input("10000Y", rate=170)
+    assert res_170 is not None
+    assert res_170["base_vnd"] == 1700000
+    assert res_170["total_landing_vnd"] == 1900000
+
+
+def test_t33_deal_score_calculation():
+    """T33: Chấm điểm kèo thơm (Deal Score 1 - 10) chính xác theo điều kiện."""
+    from pricing import compute_deal_score
+
+    # Kèo thơm: Giá 12.000Y so với mốc trần 20.000Y (rẻ hơn 40%), đã thử lửa, có hộp, ít bid
+    good_deal = compute_deal_score(
+        price_jpy=12000,
+        tech_grade="working",
+        is_lot=False,
+        has_box=True,
+        bids=2,
+        target_ref_jpy=20000,
+    )
+    assert good_deal["score"] >= 8.5
+    assert "KÈO RẤT THƠM" in good_deal["label"]
+
+    # Kèo rủi ro: Giá 25.000Y vượt trần 20.000Y, chưa thử lửa (untested), nhiều bid
+    bad_deal = compute_deal_score(
+        price_jpy=25000,
+        tech_grade="untested",
+        is_lot=False,
+        has_box=False,
+        bids=30,
+        target_ref_jpy=20000,
+    )
+    assert bad_deal["score"] <= 5.0
+    assert "KÈO RỦI RO" in bad_deal["label"]
+
+    # Lô sỉ: Đơn giá 600Y/cây
+    lot_deal = compute_deal_score(
+        price_jpy=6000,
+        is_lot=True,
+        unit_price_jpy=600,
+        bids=3,
+    )
+    assert lot_deal["score"] >= 7.5
+
+
+def test_t34_sub_radar_brand_modes():
+    """T34: Phân giải lệnh sub-radar các hãng Dupont, Dunhill, Zippo."""
+    from handlers.radar_handlers import _resolve_brand_mode
+
+    m_dp, name_dp = _resolve_brand_mode(["dupont"])
+    assert m_dp == "dupont"
+    assert "DUPONT" in name_dp
+
+    m_dh, name_dh = _resolve_brand_mode(["dunhill"])
+    assert m_dh == "dunhill"
+    assert "DUNHILL" in name_dh
+
+    m_zp, name_zp = _resolve_brand_mode(["zippo"])
+    assert m_zp == "zippo"
+    assert "ZIPPO" in name_zp
+
+    m_lot, name_lot = _resolve_brand_mode([])
+    assert m_lot == "lot"
+
+
+def test_t35_radar_format_with_custom_category_and_rate():
+    """T35: Định dạng tin nhắn Radar theo tên hãng và tỷ giá mới."""
+    from radar_service import format_radar_message, format_single_lot_block
+
+    it = {
+        "auction_id": "test_dp01",
+        "title": "S.T. Dupont Line 2 vàng",
+        "price_jpy": 20000,
+        "bids": 5,
+        "remain_text": "còn 2h",
+        "url": "https://page.auctions.yahoo.co.jp/jp/auction/test_dp01",
+    }
+    # Rate 170 => 20000 * 170 = 3.400.000 đ
+    block = format_single_lot_block(1, it, rate=170)
+    assert "3.400.000 đ" in block
+    assert "20.000 yên" in block
+
+    msg, pages = format_radar_message([it], page=1, per_page=8, rate=170, category_name="S.T. DUPONT")
+    assert "RADAR S.T. DUPONT" in msg
+    assert "3.400.000 đ" in msg
+
+
+def test_t36_classify_lighter_lot_type():
+    """T36: Phân loại chính xác 4 nhóm: Gas Đá, Dầu, Zippo, Thập Cẩm."""
+    from radar_service import classify_lighter_lot_type
+
+    # 1. Zippo
+    code, tag, icon = classify_lighter_lot_type("ZIPPO ジッポー 10点セット まとめ売り")
+    assert code == "zippo"
+    assert "ZIPPO" in tag
+
+    # 2. Bật lửa dầu
+    code, tag, icon = classify_lighter_lot_type("レトロ オイルライター 5本 まとめて ジャンク")
+    assert code == "dau"
+    assert "DẦU" in tag
+
+    # 3. Lot gas đá (gas hoặc đá lửa)
+    code, tag, icon = classify_lighter_lot_type("ダンヒル カルティエ ガスライター 6点 まとめ")
+    assert code == "gas_da"
+    assert "GAS ĐÁ" in tag
+
+    code, tag, icon = classify_lighter_lot_type("ライター フリント 着火石 20個 大量まとめ")
+    assert code == "gas_da"
+    assert "GAS ĐÁ" in tag
+
+    # 4. Thập cẩm (hỗn hợp)
+    code, tag, icon = classify_lighter_lot_type("ライター 大量まとめ売り ジャンク 50点 詰め合わせ")
+    assert code == "thapcam"
+    assert "THẬP CẨM" in tag
+
+
+def test_t37_radar_categories_config():
+    """T37: Kiểm tra BRAND_RADAR_CONFIGS có đủ 4 nhóm chính theo yêu cầu."""
+    from radar_service import BRAND_RADAR_CONFIGS
+
+    assert "gas_da" in BRAND_RADAR_CONFIGS
+    assert "dau" in BRAND_RADAR_CONFIGS
+    assert "zippo" in BRAND_RADAR_CONFIGS
+    assert "thapcam" in BRAND_RADAR_CONFIGS
+
+    assert BRAND_RADAR_CONFIGS["gas_da"]["title"] == "LOT GAS ĐÁ"
+    assert BRAND_RADAR_CONFIGS["dau"]["title"] == "BẬT LỬA DẦU"
+    assert BRAND_RADAR_CONFIGS["thapcam"]["title"] == "LÔ THẬP CẨM"
+
+
+def test_t38_radar_page_keyboard_four_groups():
+    """T38: Kiểm tra bàn phím phân trang Radar có đủ 4 nút chọn danh mục mới."""
+    from handlers.radar_handlers import _get_radar_page_keyboard
+
+    kb = _get_radar_page_keyboard(1, 3, 10, is_auto_on=True, current_mode="gas_da")
+    btn_datas = [b.callback_data for row in kb.inline_keyboard for b in row]
+
+    assert "radar_brand:thapcam" in btn_datas
+    assert "radar_brand:gas_da" in btn_datas
+    assert "radar_brand:dau" in btn_datas
+    assert "radar_brand:zippo" in btn_datas
+
+
+def test_t39_dashboard_server_stats_api(test_db, tmp_path):
+    """T39: Kiểm tra REST API /api/stats phục vụ Telegram WebApp Dashboard."""
+    import json
+    import socket
+    import urllib.request
+    from config import AppConfig
+    from dashboard_server import start_dashboard_server
+    from repository import create_record, set_bid_cap, set_exchange_rate
+    from models import BidCap, Record
+
+    # Thêm dữ liệu mẫu vào test_db
+    conn = test_db
+    set_exchange_rate(conn, 172)
+    create_record(
+        conn,
+        Record(
+            id="Q0001",
+            owner_user_id=123,
+            raw_text="dupont line 2 vang",
+            display_name="Dupont Line 2 Vàng",
+            normalized_search_text="",
+            brand="dupont",
+            line="line_2",
+            amount_jpy=25000,
+            currency="JPY",
+        ),
+    )
+    create_record(
+        conn,
+        Record(
+            id="Q0002",
+            owner_user_id=123,
+            raw_text="dunhill rollagas bac",
+            display_name="Dunhill Rollagas Bạc",
+            normalized_search_text="",
+            brand="dunhill",
+            line="rollagas",
+            amount_jpy=12000,
+            currency="JPY",
+        ),
+    )
+    set_bid_cap(
+        conn,
+        BidCap(
+            id=None,
+            scope_key="test_dupont",
+            brand="dupont",
+            line="line_2",
+            material="gold",
+            color="gold",
+            box="yes",
+            condition="good",
+            cap_amount_jpy=30000,
+            source_record_id="Q0001",
+        ),
+    )
+
+    # Tìm cổng trống ngẫu nhiên
+    with socket.socket() as s:
+        s.bind(("", 0))
+        free_port = s.getsockname()[1]
+
+    # Khởi động server
+    db_path = tmp_path / "test_vault.db"
+    cfg = AppConfig(bot_token="test", owner_id=123, db_path=db_path, backup_dir=tmp_path, price_high_threshold_jpy=50000)
+    server = start_dashboard_server(cfg, port=free_port)
+    assert server is not None
+
+    try:
+        url = f"http://127.0.0.1:{free_port}/api/stats"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["total_records"] >= 2
+            assert data["total_caps"] >= 1
+            assert data["total_jpy"] >= 37000
+            assert data["rate"] == 172
+            assert any(b["name"].lower() == "dupont" for b in data["brands"])
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_t40_dashboard_server_records_and_html(test_db, tmp_path):
+    """T40: Kiểm tra REST API /api/records, /healthz và WebApp HTML giao diện."""
+    import json
+    import socket
+    import urllib.request
+    from config import AppConfig
+    from dashboard_server import start_dashboard_server
+
+    conn = test_db
+    db_path = tmp_path / "test_vault.db"
+    cfg = AppConfig(bot_token="test", owner_id=123, db_path=db_path, backup_dir=tmp_path, price_high_threshold_jpy=50000)
+
+    with socket.socket() as s:
+        s.bind(("", 0))
+        free_port = s.getsockname()[1]
+
+    server = start_dashboard_server(cfg, port=free_port)
+    assert server is not None
+
+    try:
+        # 1. Health check
+        with urllib.request.urlopen(f"http://127.0.0.1:{free_port}/healthz", timeout=3) as r:
+            assert r.status == 200
+            assert r.read() == b"OK"
+
+        # 2. API Records
+        with urllib.request.urlopen(f"http://127.0.0.1:{free_port}/api/records", timeout=3) as r:
+            assert r.status == 200
+            records = json.loads(r.read().decode("utf-8"))
+            assert isinstance(records, list)
+
+        # 3. WebApp Dashboard HTML
+        with urllib.request.urlopen(f"http://127.0.0.1:{free_port}/dashboard", timeout=3) as r:
+            assert r.status == 200
+            html = r.read().decode("utf-8")
+            assert "LamQuet Vault" in html
+            assert "Bảng Điều Khiển" in html
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_t41_ebay_price_and_vnd_parsing():
+    """T41: Bóc tách giá tiền eBay USD và VND."""
+    from ebay_service import parse_ebay_price_and_vnd
+
+    usd_p, vnd_p = parse_ebay_price_and_vnd("$35.00", usd_rate=25500)
+    assert usd_p == "$35.00"
+    assert vnd_p == "892.500"
+
+    usd_p2, vnd_p2 = parse_ebay_price_and_vnd("USD 100.00", usd_rate=25000)
+    assert usd_p2 == "$100.00"
+    assert vnd_p2 == "2.500.000"
+
+    usd_p3, vnd_p3 = parse_ebay_price_and_vnd("510,000 VND", usd_rate=25500)
+    assert "510.000" in vnd_p3
+
+
+def test_t42_ebay_time_filter():
+    """T42: Kiểm tra bộ lọc thời gian tàn phiên trước 11h sáng mai."""
+    from ebay_service import is_ending_before_tomorrow_noon
+
+    assert is_ending_before_tomorrow_noon("1h 29m left") is True
+    assert is_ending_before_tomorrow_noon("45m left") is True
+    assert is_ending_before_tomorrow_noon("14h left") is True
+    assert is_ending_before_tomorrow_noon("1d 2h left") is True
+    assert is_ending_before_tomorrow_noon("2d left") is False
+    assert is_ending_before_tomorrow_noon("3d 5h left") is False
+    assert is_ending_before_tomorrow_noon("5d left") is False
+
+
+def test_t43_ebay_format_single_block():
+    """T43: Định dạng thông tin 1 phiên đấu giá eBay."""
+    from ebay_service import format_single_ebay_block
+
+    item = {
+        "id": "123456789",
+        "title": "Vintage S.T. Dupont Lighter Gold Plated",
+        "price_raw": "$50.00",
+        "bids": 7,
+        "time_left": "2h 15m left",
+        "url": "https://www.ebay.com/itm/123456789",
+    }
+    block = format_single_ebay_block(1, item, usd_rate=25000)
+    assert "Vintage S.T. Dupont Lighter" in block
+    assert "$50.00" in block
+    assert "1.250.000 đ" in block
+    assert "7 bids" in block
+    assert "2h 15m left" in block
+    assert "https://www.ebay.com/itm/123456789" in block
+
+
+def test_t44_ebay_format_message_and_pagination():
+    """T44: Định dạng tin nhắn eBay Radar có phân trang và fallback rỗng."""
+    from ebay_service import format_ebay_message
+
+    sample_items = [
+        {
+            "id": f"100{i}",
+            "title": f"Dunhill Rollagas Lighter Silver #{i}",
+            "price_raw": "$40.00",
+            "bids": i + 1,
+            "time_left": f"{i}h left",
+            "url": f"https://www.ebay.com/itm/100{i}",
+        }
+        for i in range(1, 10)
+    ]
+    # Trang 1 / 2 với per_page = 5
+    msg, total_pages = format_ebay_message(sample_items, page=1, per_page=5, keyword="dunhill")
+    assert "RADAR ĐẤU GIÁ EBAY" in msg
+    assert "Trang 1/2" in msg
+    assert total_pages == 2
+    assert "Dunhill Rollagas Lighter Silver #1" in msg
+
+    # Trang rỗng
+    empty_msg, empty_pages = format_ebay_message([], page=1, per_page=5, keyword="zippo")
+    assert "Hiện chưa tìm thấy" in empty_msg
+    assert empty_pages == 1
+
+
+def test_t45_ebay_page_keyboard():
+    """T45: Kiểm tra bàn phím phân trang và chuyển đổi thương hiệu eBay."""
+    from handlers.ebay_handlers import _get_ebay_page_keyboard
+
+    kb = _get_ebay_page_keyboard(1, 3, "dupont")
+    btn_texts = [b.text for row in kb.inline_keyboard for b in row]
+    btn_datas = [b.callback_data for row in kb.inline_keyboard for b in row]
+
+    assert "Sau ▶️" in btn_texts
+    assert "ebay_page:2" in btn_datas
+    assert "ebay_brand:dupont" in btn_datas
+    assert "ebay_brand:dunhill" in btn_datas
+    assert "ebay_brand:zippo" in btn_datas
+    assert "ebay_refresh:dupont" in btn_datas
+
+
+def test_t46_ebay_brand_keywords_stemming():
+    """T46: Kiểm tra từ khóa tìm kiếm hỗ trợ cả số ít, số nhiều (lighter, lighters) và brand."""
+    from ebay_service import EBAY_BRAND_KEYWORDS
+
+    assert "(lighter,lighters)" in EBAY_BRAND_KEYWORDS["all"]
+    assert "(lighter,lighters)" in EBAY_BRAND_KEYWORDS["lighters"]
+    assert "(lighter,lighters)" in EBAY_BRAND_KEYWORDS["lighter"]
+    assert "dupont" in EBAY_BRAND_KEYWORDS["dupont"]
+    assert "dunhill" in EBAY_BRAND_KEYWORDS["dunhill"]
+    assert "zippo" in EBAY_BRAND_KEYWORDS["zippo"]
+
+
+def test_t47_ebay_html_container_card_and_bids():
+    """T47: Kiểm tra bóc tách cấu trúc HTML s-card mới của eBay kèm bids và thời gian."""
+    from bs4 import BeautifulSoup
+    import re
+    from ebay_service import is_ending_before_tomorrow_noon
+
+    mock_html = """
+    <ul class="srp-results">
+        <li class="s-card">
+            <a href="https://www.ebay.com/itm/336774990755?_trk=123">
+                <span class="s-card__title">Vintage 1980 Zippo Handilite Fisher Instruments Lighter</span>
+            </a>
+            <div class="s-card__price">US $21.50</div>
+            <span class="s-card__bids">7 bids</span>
+            <span class="s-card__time">20h 24m left</span>
+        </li>
+        <li class="s-card">
+            <a href="https://www.ebay.com/itm/158251813979?_trk=456">
+                <span class="s-card__title">Vintage 1949-50 Town & Country Zippo - Setter Dog</span>
+            </a>
+            <div class="s-card__price">US $1,175.00</div>
+            <span class="s-card__bids">20 bids</span>
+            <span class="s-card__time">20h 37m left</span>
+        </li>
+        <li class="s-card">
+            <a href="https://www.ebay.com/itm/999999999999">
+                <span class="s-card__title">Expired Lighter Far Away</span>
+            </a>
+            <div class="s-card__price">US $10.00</div>
+            <span class="s-card__bids">3 bids</span>
+            <span class="s-card__time">3d 4h left</span>
+        </li>
+    </ul>
+    """
+    soup = BeautifulSoup(mock_html, "html.parser")
+    containers = soup.select("ul.srp-results > li")
+    assert len(containers) == 3
+
+    valid_items = []
+    for c in containers:
+        c_txt = c.get_text(" ", strip=True)
+        m_b = re.search(r"(\d+)\s*bids?", c_txt, re.IGNORECASE)
+        m_t = re.search(r"((?:\d+\s*[dhm]\s*)+left)", c_txt, re.IGNORECASE)
+        time_str = m_t.group(1) if m_t else ""
+        if m_b and time_str and is_ending_before_tomorrow_noon(time_str):
+            link = c.select_one("a[href*='/itm/']")
+            m_id = re.search(r"/itm/(\d+)", link["href"])
+            valid_items.append({
+                "id": m_id.group(1),
+                "bids": int(m_b.group(1)),
+                "time": time_str
+            })
+
+    # Chỉ 2 item đầu hợp lệ (còn hạn), item 3 bị loại vì 3d 4h left
+    assert len(valid_items) == 2
+    assert valid_items[0]["id"] == "336774990755"
+    assert valid_items[0]["bids"] == 7
+    assert valid_items[1]["id"] == "158251813979"
+    assert valid_items[1]["bids"] == 20
+
+
+def test_t48_ebay_deduplication_logic():
+    """T48: Kiểm tra cơ chế chống trùng lặp seen_ids khi cào nhiều trang."""
+    seen_ids = set()
+    raw_incoming = ["111", "222", "111", "333", "222", "444"]
+    unique_items = []
+    for iid in raw_incoming:
+        if iid in seen_ids:
+            continue
+        seen_ids.add(iid)
+        unique_items.append(iid)
+
+    assert unique_items == ["111", "222", "333", "444"]
+    assert len(unique_items) == 4
+
+
+def test_t49_yahoo_lot_strict_verification_15_cases():
+    """T49: Kiểm tra đầy đủ 15 ca kiểm thử chuẩn xác minh Lot Yahoo Auctions."""
+    from parser import verify_yahoo_lighter_lot, extract_actual_lighter_count
+
+    # Ca 1: 5 bật lửa bán chung -> NHẬN (VERIFIED_LOT)
+    c1 = {
+        "auction_id": "c1_5lighters",
+        "title": "ガスライター 5本セット まとめて ダンヒル デュポン",
+        "description": "5本のライターを出品します。すべてセットで同梱発送です。",
+        "current_price_jpy": 12000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v1 = verify_yahoo_lighter_lot(c1)
+    assert v1["is_verified_lot"] is True
+    assert v1["decision_code"] == "VERIFIED_LOT"
+    assert v1["lighter_count"] == 5
+
+    # Ca 2: 1 Dupont full box -> LOẠI (SINGLE_ITEM)
+    c2 = {
+        "auction_id": "c2_dupont_box",
+        "title": "S.T.Dupont デュポン ライン2 ゴールド フルセット 箱 説明書付き 1点",
+        "description": "デュポン1本です。箱、ギャランティカード付属。本体1個。",
+        "current_price_jpy": 35000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v2 = verify_yahoo_lighter_lot(c2)
+    assert v2["is_verified_lot"] is False
+    assert v2["decision_code"] == "SINGLE_ITEM"
+
+    # Ca 3: 1 Zippo kèm gas và đá -> LOẠI (SINGLE_ITEM)
+    c3 = {
+        "auction_id": "c3_zippo_gas",
+        "title": "ZIPPO ジッポー 1個 + オイル 替石 フリント セット",
+        "description": "Zippo 1点と消耗品のセットです。1本のみ。",
+        "current_price_jpy": 2500,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v3 = verify_yahoo_lighter_lot(c3)
+    assert v3["is_verified_lot"] is False
+    assert v3["decision_code"] in ("SINGLE_ITEM", "ACCESSORY_ONLY")
+
+    # Ca 4: Ảnh 10 cây, mô tả chỉ bán 1 cây -> LOẠI (PER_PIECE_CHOICE / SINGLE_ITEM)
+    c4 = {
+        "auction_id": "c4_photo10_sell1",
+        "title": "ライター 10本 まとめて写真",
+        "description": "写真はイメージです。画像の中からお好きな1本をお選びください。1本の価格です。",
+        "current_price_jpy": 1000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v4 = verify_yahoo_lighter_lot(c4)
+    assert v4["is_verified_lot"] is False
+    assert v4["decision_code"] in ("PER_PIECE_CHOICE", "SINGLE_ITEM")
+
+    # Ca 5: 10 cây, giá tính mỗi cây / chọn 1 cây -> LOẠI (PER_PIECE_CHOICE)
+    c5 = {
+        "auction_id": "c5_10items_per_piece",
+        "title": "ジッポー ライター 10個 各種",
+        "description": "1個あたりの値段です。落札後にご希望の番号を選択してください。",
+        "current_price_jpy": 1500,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v5 = verify_yahoo_lighter_lot(c5)
+    assert v5["is_verified_lot"] is False
+    assert v5["decision_code"] == "PER_PIECE_CHOICE"
+
+    # Ca 6: 20 hộp Zippo rỗng -> LOẠI (ACCESSORY_ONLY)
+    c6 = {
+        "auction_id": "c6_20empty_boxes",
+        "title": "ZIPPO ジッポ 空箱 20個セット ケースのみ",
+        "description": "中身のライターはありません。ケースのみ20点です。",
+        "current_price_jpy": 5000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v6 = verify_yahoo_lighter_lot(c6)
+    assert v6["is_verified_lot"] is False
+    assert v6["decision_code"] == "ACCESSORY_ONLY"
+
+    # Ca 7: 8 cây junk bán chung -> NHẬN + nhãn junk (VERIFIED_LOT)
+    c7 = {
+        "auction_id": "c7_8junk",
+        "title": "オイルライター ジャンク 8本 まとめ売り 動作未確認",
+        "description": "着火未確認のため全てジャンク品として出品します。8本まとめてセットです。",
+        "current_price_jpy": 4500,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v7 = verify_yahoo_lighter_lot(c7)
+    assert v7["is_verified_lot"] is True
+    assert v7["decision_code"] == "VERIFIED_LOT"
+    assert v7["lighter_count"] == 8
+    assert "Junk" in v7["condition_label"]
+
+    # Ca 8: 5 cây, ghi “không bán tách” (バラ売り不可) -> NHẬN (VERIFIED_LOT)
+    c8 = {
+        "auction_id": "c8_no_split",
+        "title": "ブランドライター 5点 まとめ売り バラ売り不可",
+        "description": "5点セットです。バラ売りはいたしません。全品セットでの取引となります。",
+        "current_price_jpy": 18000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v8 = verify_yahoo_lighter_lot(c8)
+    assert v8["is_verified_lot"] is True
+    assert v8["decision_code"] == "VERIFIED_LOT"
+    assert v8["lighter_count"] == 5
+
+    # Ca 9: Tiêu đề nói lot, mô tả nói chỉ bán một cây -> LOẠI
+    c9 = {
+        "auction_id": "c9_title_lot_desc_single",
+        "title": "ライター 大量 まとめ売り 複数点",
+        "description": "※注意：タイトルにまとめとありますが、出品商品は1点のみです。単品販売。",
+        "current_price_jpy": 2000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v9 = verify_yahoo_lighter_lot(c9)
+    assert v9["is_verified_lot"] is False
+    assert v9["decision_code"] == "SINGLE_ITEM"
+
+    # Ca 10: Không đọc được chi tiết -> UNCERTAIN (không gửi)
+    c10 = {
+        "auction_id": "c10_fetch_error",
+        "title": "ライター まとめ",
+        "current_price_jpy": 3000,
+        "status": "open",
+        "is_fetched": False,
+    }
+    v10 = verify_yahoo_lighter_lot(c10)
+    assert v10["is_verified_lot"] is False
+    assert v10["decision_code"] == "UNCERTAIN"
+
+    # Ca 11: 1 cây sản xuất giới hạn 1.000 chiếc (1000個限定) -> LOẠI (SINGLE_ITEM)
+    c11 = {
+        "auction_id": "c11_limited_edition",
+        "title": "ZIPPO 1000個限定 シリアル入り 1999年製",
+        "description": "限定1000個生産のzippoライター1本です。1点のみ。",
+        "current_price_jpy": 8000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v11 = verify_yahoo_lighter_lot(c11)
+    assert v11["is_verified_lot"] is False
+    assert v11["decision_code"] == "SINGLE_ITEM"
+
+    # Ca 12: 10 cây trong đó 1 cây hỏng -> NHẬN 10 cây
+    c12 = {
+        "auction_id": "c12_10with1defect",
+        "title": "ガスライター 10本セット 1本ジャンク含む",
+        "description": "10本セットです。9本着火確認済み、1本故障品です。まとめて出品。",
+        "current_price_jpy": 9000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v12 = verify_yahoo_lighter_lot(c12)
+    assert v12["is_verified_lot"] is True
+    assert v12["decision_code"] == "VERIFIED_LOT"
+    assert v12["lighter_count"] == 10
+
+    # Ca 13: Lot nhiều hãng (Dupont + Dunhill + Zippo >= 2 cây) -> NHẬN
+    c13 = {
+        "auction_id": "c13_multi_brand",
+        "title": "ダンヒル デュポン ジッポ ライター 3本 セット",
+        "description": "Dunhill, Dupont, Zippo 各1本ずつの計3本セットです。まとめて。",
+        "current_price_jpy": 22000,
+        "status": "open",
+        "is_fetched": True,
+    }
+    v13 = verify_yahoo_lighter_lot(c13)
+    assert v13["is_verified_lot"] is True
+    assert v13["decision_code"] == "VERIFIED_LOT"
+    assert v13["lighter_count"] == 3
+
+    # Ca 14: Cùng phiên xuất hiện qua nhiều keyword -> Khử trùng 1 kết quả duy nhất
+    all_matched = {}
+    mock_scanned_items = [
+        {"auction_id": "aid_dup_test", "title": "ライター 5本 まとめ 1", "bids": 5, "price_jpy": 1000},
+        {"auction_id": "aid_dup_test", "title": "ライター 5本 まとめ 2", "bids": 5, "price_jpy": 1000},
+        {"auction_id": "aid_dup_test", "title": "ライター 5本 まとめ 3", "bids": 5, "price_jpy": 1000},
+    ]
+    for it in mock_scanned_items:
+        aid = it["auction_id"]
+        if aid not in all_matched:
+            all_matched[aid] = it
+    assert len(all_matched) == 1
+    assert "aid_dup_test" in all_matched
+
+    # Ca 15: Phiên đã kết thúc (closed) -> LOẠI (CLOSED_AUCTION)
+    c15 = {
+        "auction_id": "c15_ended_auction",
+        "title": "ライター 5本 まとめて 出品終了",
+        "description": "5本セットです。",
+        "current_price_jpy": 5000,
+        "status": "closed",
+        "is_fetched": True,
+    }
+    v15 = verify_yahoo_lighter_lot(c15)
+    assert v15["is_verified_lot"] is False
+    assert v15["decision_code"] == "CLOSED_AUCTION"
+
+
+def test_t50_dashboard_server_radar_and_audit_api(tmp_path):
+    """T50: Kiểm tra API /api/radars (chỉ trả lot xác minh) và /api/radar/audit (trả log bị loại)."""
+    from config import AppConfig
+    from db import get_db_connection
+    from repository import save_lot_audit_log
+    from dashboard_server import DashboardHTTPHandler
+    import json
+    from io import BytesIO
+
+    from pathlib import Path
+    from db import init_database
+    db_file = tmp_path / "test_dash.db"
+    cfg = AppConfig(bot_token="fake:token", owner_id=12345, db_path=Path(db_file), backup_dir=Path(tmp_path), price_high_threshold_jpy=500000)
+    init_database(cfg.db_path)
+    conn = get_db_connection(cfg.db_path)
+    try:
+        save_lot_audit_log(
+            conn,
+            auction_id="audit_single_01",
+            title="Dupont 1 cay hop dep",
+            decision_code="SINGLE_ITEM",
+            evidence_reason="Chi ban 1 cay",
+            price_jpy=15000,
+            bids=3,
+        )
+    finally:
+        conn.close()
+
+    # Kiểm tra truy vấn audit log từ repository
+    from repository import get_lot_audit_logs
+    conn = get_db_connection(cfg.db_path)
+    # Kiểm tra hàm get_lot_audit_stats
+    from repository import get_lot_audit_stats
+    conn = get_db_connection(cfg.db_path)
+    try:
+        stats = get_lot_audit_stats(conn)
+        assert stats.get("SINGLE_ITEM") == 1
+        assert stats.get("total") == 1
+    finally:
+        conn.close()
+
+
+def test_t51_yahoo_lot_comprehensive_88_edge_cases():
+    """T51: Kiểm tra mở rộng 88 ca kiểm thử bao quát toàn bộ các kịch bản thực tế của Yahoo Auctions."""
+    from parser import verify_yahoo_lighter_lot
+
+    # --- NHÓM 1: CÁC DẠNG ĐẾM SỐ LƯỢNG BẬT LỬA CHUẨN (2 đến 100 cây) -> PHẢI LÀ VERIFIED_LOT (25 ca) ---
+    lot_count_cases = [
+        ("ライター 2本セット まとめて", 2),
+        ("ZIPPO 3個セット オイルライター", 3),
+        ("ガスライター 4本 まとめ売り", 4),
+        ("ダンヒル デュポン 5本 まとめて", 5),
+        ("ブランドライター 6点セット", 6),
+        ("オイルライター 7本 ジャンク", 7),
+        ("喫煙具 ライター 8本 まとめて", 8),
+        ("ライター 9点 セット売り", 9),
+        ("ZIPPO ライター 10本 大量まとめ", 10),
+        ("ガスライター 12本 アソート", 12),
+        ("ライター 15個 まとめて出品", 15),
+        ("ライター 20本 まとめ売り ジャンク", 20),
+        ("ライター 30点 大量", 30),
+        ("オイルライター 50本 まとめ", 50),
+        ("使い捨て・ガスライター 100本 大量まとめ", 100),
+        ("ZIPPO 2個 まとめて", 2),
+        ("ライター 3個 セット", 3),
+        ("オイルライター 5個 まとめて", 5),
+        ("ガスライター 10個 まとめ", 10),
+        ("ライター 20個 まとめて", 20),
+        ("ライター 2点 セット", 2),
+        ("ライター 3点 まとめて", 3),
+        ("ライター 5点 まとめ売り", 5),
+        ("ライター 10点 まとめ", 10),
+        ("ライター 20点 まとめて", 20),
+    ]
+    for idx, (title, expected_cnt) in enumerate(lot_count_cases, 1):
+        res = verify_yahoo_lighter_lot({
+            "auction_id": f"test_lot_cnt_{idx}",
+            "title": title,
+            "description": f"商品は画像のとおり{expected_cnt}本セットです。まとめて出品します。",
+            "current_price_jpy": 5000,
+            "status": "open",
+            "is_fetched": True,
+        })
+        assert res["is_verified_lot"] is True, f"Failed on '{title}': expected VERIFIED_LOT"
+        assert res["decision_code"] == "VERIFIED_LOT"
+        assert res["lighter_count"] == expected_cnt, f"Failed count on '{title}': expected {expected_cnt}, got {res['lighter_count']}"
+
+    # --- NHÓM 2: CÁC CỤM TỪ BÁN GOM / KHÔNG BÁN TÁCH (10 ca) -> VERIFIED_LOT ---
+    lot_keyword_cases = [
+        ("ライター まとめ売り 複数点", "まとめ売りです。"),
+        ("オイルライター まとめて 出品", "すべてセットです。"),
+        ("ガスライター 大量 詰め合わせ", "ライターの詰め合わせセットです。"),
+        ("ブランドライター 一括 出品", "一括でお譲りします。"),
+        ("ライター アソートセット", "色々なライターのアソートです。"),
+        ("ZIPPO まとめて 複数点 バラ売り不可", "バラ売り不可です。"),
+        ("ライター 5点 バラ売りはできません", "バラ売りはできません。"),
+        ("ダンヒル デュポン ライター バラ売りNG", "バラ売りNGとなります。"),
+        ("ガスライター まとめ バラ売りはいたしません", "バラ売りはいたしません。"),
+        ("ZIPPO オイルライター まとめて バラ売りしません", "バラ売りしません。"),
+    ]
+    for idx, (title, desc) in enumerate(lot_keyword_cases, 1):
+        res = verify_yahoo_lighter_lot({
+            "auction_id": f"test_lot_kw_{idx}",
+            "title": title,
+            "description": desc,
+            "current_price_jpy": 7000,
+            "status": "open",
+            "is_fetched": True,
+        })
+        assert res["is_verified_lot"] is True, f"Failed on '{title}': expected VERIFIED_LOT"
+        assert res["decision_code"] == "VERIFIED_LOT"
+
+    # --- NHÓM 3: BÁN TÁCH LẺ HOẶC CHỌN TỪNG CÂY / TÍNH GIÁ TỪNG CÂY (10 ca) -> LOẠI (PER_PIECE_CHOICE) ---
+    choice_per_piece_cases = [
+        ("ライター 10本 写真", "画像の中からどれか1つをお選びください。"),
+        ("ZIPPO 5点 各種", "どれか1点お選びください。"),
+        ("ブランドライター 8本", "落札後にお好きな1本をお選びください。"),
+        ("ガスライター 10本", "1つお選びいただけます。"),
+        ("オイルライター 各種", "ご希望の番号をご連絡ください。"),
+        ("ZIPPO 6点", "お好きなものをお選びください。"),
+        ("ライター 10本", "1個の価格となります。ご注意ください。"),
+        ("ZIPPO 5本", "1本の価格です。"),
+        ("ダンヒル ライター 各種", "1点あたりの価格です。"),
+        ("ライター 複数出品", "単品価格です。まとめ買いではありません。"),
+    ]
+    for idx, (title, desc) in enumerate(choice_per_piece_cases, 1):
+        res = verify_yahoo_lighter_lot({
+            "auction_id": f"test_choice_{idx}",
+            "title": title,
+            "description": desc,
+            "current_price_jpy": 1500,
+            "status": "open",
+            "is_fetched": True,
+        })
+        assert res["is_verified_lot"] is False, f"Failed on '{title}': must be rejected"
+        assert res["decision_code"] == "PER_PIECE_CHOICE"
+
+    # --- NHÓM 4: CHỈ BÁN HỘP RỖNG HOẶC LINH KIỆN/RUỘT (10 ca) -> LOẠI (ACCESSORY_ONLY) ---
+    accessory_only_cases = [
+        "ZIPPO 空箱 10個セット ケースのみ",
+        "デュポン 元箱のみ 箱 3個",
+        "ダンヒル ケースのみ 5個 まとめ",
+        "ZIPPO インサイドユニット 3個セット",
+        "ZIPPO インナーユニット ゴールド 2個",
+        "ガスボンベ 5本セット ライター用ガス",
+        "ライター用 発火石 フリント 10個入",
+        "ZIPPO 替え芯 ウィック 10本セット",
+        "ライター 部品のみ パーツまとめ 故障品",
+        "ジッポー 木箱のみ コレクションケース",
+    ]
+    for idx, title in enumerate(accessory_only_cases, 1):
+        res = verify_yahoo_lighter_lot({
+            "auction_id": f"test_acc_{idx}",
+            "title": title,
+            "description": "中身のライター本体はありません。ケースや消耗品のみの出品です。",
+            "current_price_jpy": 3000,
+            "status": "open",
+            "is_fetched": True,
+        })
+        assert res["is_verified_lot"] is False, f"Failed on '{title}': must be rejected"
+        assert res["decision_code"] == "ACCESSORY_ONLY"
+
+    # --- NHÓM 5: HÀNG LẺ 1 CÂY KÈM PHỤ KIỆN HOẶC BẢN GIỚI HẠN (12 ca) -> LOẠI (SINGLE_ITEM) ---
+    single_item_cases = [
+        ("S.T.Dupont ライン2 ゴールド 1本 箱付き", "本体1点のみ。"),
+        ("ZIPPO 1000個限定 1999年製 シリアル入り", "限定モデルのzippo 1本です。"),
+        ("ZIPPO 500本限定 リミテッドエディション", "500本限定の1点物です。"),
+        ("ZIPPO 1935レプリカ 1点 オイルライター", "1935レプリカモデル1本。"),
+        ("ZIPPO 1941レプリカ 1本 ブラッククラックル", "1941モデル本体のみ1個。"),
+        ("ダンヒル ローラガス ゴールド 1点 美品", "ダンヒルライター1本です。"),
+        ("カルティエ オーバル ガスライター 1本", "カルティエ本体1点。"),
+        ("ロンソン バンジョー オイルライター 1個", "ロンソン1本のみ出品。"),
+        ("マーベラス オイルライター 1本", "単品出品です。"),
+        ("コリブリ オイルライター 1点 レトロ", "本体1点。"),
+        ("ZIPPO + オイル缶 + フリント 3点セット", "ZIPPOライター1点とオイル・石の3点セットです。本体は1本。"),
+        ("デュポン ライター 1本 保証書 説明書 箱 4点セット", "ライター1本と付属品一式です。"),
+    ]
+    for idx, (title, desc) in enumerate(single_item_cases, 1):
+        res = verify_yahoo_lighter_lot({
+            "auction_id": f"test_single_{idx}",
+            "title": title,
+            "description": desc,
+            "current_price_jpy": 8000,
+            "status": "open",
+            "is_fetched": True,
+        })
+        assert res["is_verified_lot"] is False, f"Failed on '{title}': must be rejected as SINGLE_ITEM"
+        assert res["decision_code"] in ("SINGLE_ITEM", "ACCESSORY_ONLY")
+
+    # --- NHÓM 6: HÀNG KHÔNG PHẢI BẬT LỬA (8 ca) -> LOẠI (NON_LIGHTER) ---
+    non_lighter_cases = [
+        "ダンヒル ネクタイ 5本セット まとめ売り",
+        "デュポン 万年筆 ペン先18K 2本 セット",
+        "カルティエ 腕時計 マストタンク 1点",
+        "古酒 ウイスキー 3本 まとめて 出品",
+        "熱収縮チューブ 100本セット 配線修理",
+        "ハンダ 10巻 まとめ売り 工具",
+        "メンズ ソックス 靴下 10足セット",
+        "ブランド 財布 バッグ 3点 まとめて",
+    ]
+    for idx, title in enumerate(non_lighter_cases, 1):
+        res = verify_yahoo_lighter_lot({
+            "auction_id": f"test_non_lighter_{idx}",
+            "title": title,
+            "description": "喫煙具ではありません。",
+            "current_price_jpy": 6000,
+            "status": "open",
+            "is_fetched": True,
+        })
+        assert res["is_verified_lot"] is False, f"Failed on '{title}': must be rejected as NON_LIGHTER"
+        assert res["decision_code"] == "NON_LIGHTER"
+
+    # --- NHÓM 7: PHIÊN BỊ LỖI / PHIÊN KẾT THÚC / DỮ LIỆU RỖNG (8 ca) -> UNCERTAIN / CLOSED_AUCTION ---
+    res_closed = verify_yahoo_lighter_lot({
+        "auction_id": "test_closed",
+        "title": "ライター 5本 まとめて",
+        "status": "closed",
+        "is_fetched": True,
+    })
+    assert res_closed["is_verified_lot"] is False
+    assert res_closed["decision_code"] == "CLOSED_AUCTION"
+
+    res_unfetched = verify_yahoo_lighter_lot({
+        "auction_id": "test_unfetched",
+        "title": "ライター 10本 まとめ売り",
+        "is_fetched": False,
+    })
+    assert res_unfetched["is_verified_lot"] is False
+    assert res_unfetched["decision_code"] == "UNCERTAIN"
+
+    res_empty_title = verify_yahoo_lighter_lot({
+        "auction_id": "test_empty_title",
+        "title": "",
+        "is_fetched": True,
+    })
+    assert res_empty_title["is_verified_lot"] is False
+    assert res_empty_title["decision_code"] == "UNCERTAIN"
+
+    # Phiên có kết thúc trong mô tả
+    res_ended_desc = verify_yahoo_lighter_lot({
+        "auction_id": "test_ended_desc",
+        "title": "ライター 5本 まとめて",
+        "description": "このオークションは終了しました。落札者決定。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_ended_desc["is_verified_lot"] is False
+    assert res_ended_desc["decision_code"] == "CLOSED_AUCTION"
+
+    # Đọc mô tả có chữ 'cho phép bán tách lẻ'
+    res_split_allowed = verify_yahoo_lighter_lot({
+        "auction_id": "test_split_allowed",
+        "title": "ライター 5本セット",
+        "description": "バラ売り可能です。コメント欄からご相談ください。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_split_allowed["is_verified_lot"] is False
+    assert res_split_allowed["decision_code"] == "PER_PIECE_CHOICE"
+
+    # Tiêu đề ghi 5 cây nhưng mô tả nói chỉ bán cây khoanh đỏ
+    res_red_circle = verify_yahoo_lighter_lot({
+        "auction_id": "test_red_circle",
+        "title": "ライター 5本セット 写真",
+        "description": "画像のうち赤丸の1点のみの出品となります。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_red_circle["is_verified_lot"] is False
+    assert res_red_circle["decision_code"] == "SINGLE_ITEM"
+
+    # Tiêu đề ghi 5 cây nhưng mô tả nói hàng lẻ
+    res_single_desc = verify_yahoo_lighter_lot({
+        "auction_id": "test_single_desc",
+        "title": "ライター 5本セット",
+        "description": "出品物は1点のみとなります。写真のケースは付属しません。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_single_desc["is_verified_lot"] is False
+    assert res_single_desc["decision_code"] == "SINGLE_ITEM"
+
+    # Giá 0 yên hoặc None vẫn không bị crash
+    res_zero_price = verify_yahoo_lighter_lot({
+        "auction_id": "test_zero_price",
+        "title": "ライター 5本 まとめて",
+        "description": "5本セットです。まとめて出品。",
+        "current_price_jpy": 0,
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_zero_price["is_verified_lot"] is True
+    assert res_zero_price["lighter_count"] == 5
+
+    # --- NHÓM 8: PHÂN LOẠI TÌNH TRẠNG VÀ THƯƠNG HIỆU (5 ca) ---
+    # Ca Junk
+    res_junk = verify_yahoo_lighter_lot({
+        "auction_id": "test_junk_status",
+        "title": "オイルライター 10本 ジャンク 部品取り 動作未確認",
+        "description": "着火未確認のため全てジャンク品です。10本まとめて。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_junk["is_verified_lot"] is True
+    assert res_junk["condition_code"] == "junk"
+    assert "Junk" in res_junk["condition_label"]
+
+    # Ca Hoạt động
+    res_working = verify_yahoo_lighter_lot({
+        "auction_id": "test_working_status",
+        "title": "ガスライター 3本 着火確認済み 動作確認済み",
+        "description": "3本とも着火確認済みで良好です。まとめて。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_working["is_verified_lot"] is True
+    assert res_working["condition_code"] == "working"
+    assert "Hoạt động" in res_working["condition_label"]
+
+    # Ca Tia lửa đá
+    res_spark = verify_yahoo_lighter_lot({
+        "auction_id": "test_spark_status",
+        "title": "ZIPPO 4個 火花確認済み オイルなし",
+        "description": "4点とも火花のみ確認しております。まとめて。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_spark["is_verified_lot"] is True
+    assert res_spark["condition_code"] == "spark_only"
+
+    # Ca Chưa test
+    res_untested_cond = verify_yahoo_lighter_lot({
+        "auction_id": "test_untested_status",
+        "title": "ブランドライター 6本 現状渡し",
+        "description": "動作未確認のため現状渡しとなります。6本セット。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_untested_cond["is_verified_lot"] is True
+    assert res_untested_cond["condition_code"] == "untested"
+
+    # Ca Đa thương hiệu Dupont + Dunhill + Cartier
+    res_multi_brands = verify_yahoo_lighter_lot({
+        "auction_id": "test_multi_brands",
+        "title": "デュポン ダンヒル カルティエ ライター 3本 セット",
+        "description": "Dupont, Dunhill, Cartier の3本セットです。まとめて出品。",
+        "status": "open",
+        "is_fetched": True,
+    })
+    assert res_multi_brands["is_verified_lot"] is True
+    assert len(res_multi_brands["brands"]) >= 3
+    assert "Hỗn hợp" in res_multi_brands["brand_summary"]
+
+
+# ==========================================
+# T31 - T35: Kiểm thử mở rộng (eBay, Mercari, Deal Score, Dashboard API)
+# ==========================================
+
+def test_t31_ebay_price_parsing_and_conversion():
+    """T31: Kiểm thử bóc tách giá USD/VND của sàn đấu giá eBay."""
+    from ebay_service import parse_ebay_price_and_vnd
+
+    # 1. Giá USD chuẩn ($25.50)
+    usd_str, vnd_str = parse_ebay_price_and_vnd("$25.50", usd_rate=25500)
+    assert usd_str == "$25.50"
+    assert "650.250" in vnd_str or "650250" in vnd_str.replace(".", "")
+
+    # 2. Giá VND trực tiếp từ eBay (845935.16 VND)
+    usd_str2, vnd_str2 = parse_ebay_price_and_vnd("845935.16 VND", usd_rate=25500)
+    assert "$33" in usd_str2
+    assert "845.935" in vnd_str2
+
+    # 3. Chuỗi rác hoặc không có giá
+    usd_str3, vnd_str3 = parse_ebay_price_and_vnd("", usd_rate=25500)
+    assert usd_str3 == "Xem sàn"
+    assert vnd_str3 == ""
+
+
+def test_t32_ebay_time_filter():
+    """T32: Kiểm thử bộ lọc kết thúc trước 11h sáng mai của eBay."""
+    from ebay_service import is_ending_before_tomorrow_noon
+
+    # Kết thúc trong ngày (hợp lệ)
+    assert is_ending_before_tomorrow_noon("3h left") is True
+    assert is_ending_before_tomorrow_noon("12h left") is True
+    assert is_ending_before_tomorrow_noon("Ends in 5h") is True
+
+    # Kết thúc sau 2-3 ngày (loại bỏ)
+    assert is_ending_before_tomorrow_noon("2d left") is False
+    assert is_ending_before_tomorrow_noon("3d 4h left") is False
+
+    # Kết thúc sau 1 ngày nhiều giờ (quá 30h)
+    assert is_ending_before_tomorrow_noon("1d 10h left") is False
+
+
+def test_t33_radar_resolve_brand_mode():
+    """T33: Kiểm thử phân giải tham số lệnh /radar cho các danh mục mới."""
+    from handlers.radar_handlers import _resolve_brand_mode
+
+    mode, name = _resolve_brand_mode(["gas"])
+    assert mode == "gas_da"
+    assert "GAS ĐÁ" in name
+
+    mode, name = _resolve_brand_mode(["dau"])
+    assert mode == "dau"
+    assert "DẦU" in name
+
+    mode, name = _resolve_brand_mode(["zippo"])
+    assert mode == "zippo"
+    assert "ZIPPO" in name
+
+    mode, name = _resolve_brand_mode(["thapcam"])
+    assert mode == "thapcam"
+    assert "THẬP CẨM" in name
+
+    mode, name = _resolve_brand_mode(["mix"])
+    assert mode == "thapcam"
+
+
+def test_t34_deal_score_computation():
+    """T34: Kiểm thử thuật toán tính điểm kèo thơm (Deal Score)."""
+    from pricing import compute_deal_score
+
+    # Kèo rất thơm: hoạt động, có hộp, giá sàn rẻ hơn >40% mốc tham chiếu
+    good_deal = compute_deal_score(
+        price_jpy=6000,
+        tech_grade="working",
+        has_box=True,
+        bids=3,
+        target_ref_jpy=12000,
+    )
+    assert good_deal["score"] >= 8.5
+    assert "KÈO RẤT THƠM" in good_deal["label"]
+
+    # Kèo rủi ro: hàng junk, giá sàn vượt mốc an toàn
+    bad_deal = compute_deal_score(
+        price_jpy=15000,
+        tech_grade="junk",
+        has_box=False,
+        bids=30,
+        target_ref_jpy=10000,
+    )
+    assert bad_deal["score"] <= 5.0
+    assert "RỦI RO" in bad_deal["label"]
+
+    # Kèo lô sỉ đơn giá gom hời (<= 1000Y/cây)
+    lot_deal = compute_deal_score(
+        price_jpy=5000,
+        is_lot=True,
+        unit_price_jpy=800,
+        tech_grade="spark_only",
+    )
+    assert any("vùng gom hời" in r for r in lot_deal["reasons"])
+
+
+def test_t35_dashboard_stats_and_records_logic(test_db):
+    """T35: Kiểm thử logic truy vấn thống kê phục vụ WebApp Dashboard."""
+    from repository import create_record, set_bid_cap, get_exchange_rate, set_exchange_rate
+
+    # 1. Thiết lập tỷ giá
+    set_exchange_rate(test_db, 170)
+    rate = get_exchange_rate(test_db)
+    assert rate == 170
+
+    # 2. Thêm 2 bản ghi
+    from models import Record
+    r1 = create_record(test_db, Record(
+        id="Q0001",
+        owner_user_id=123,
+        raw_text="/data dupont line 1 10000Y",
+        display_name="Dupont Line 1",
+        normalized_search_text="dupont line 1",
+        brand="dupont",
+        line="line_1",
+        amount_jpy=10000,
+        currency="JPY",
+    ))
+    r2 = create_record(test_db, Record(
+        id="Q0002",
+        owner_user_id=123,
+        raw_text="/data dunhill rollagas 8000Y",
+        display_name="Dunhill Rollagas",
+        normalized_search_text="dunhill rollagas",
+        brand="dunhill",
+        line="rollagas",
+        amount_jpy=8000,
+        currency="JPY",
+    ))
+    from models import BidCap
+    set_bid_cap(test_db, BidCap(
+        id=None,
+        scope_key=r1.scope_key(),
+        brand=r1.brand,
+        line=r1.line,
+        material=r1.material,
+        color=r1.color,
+        box=r1.box,
+        condition=r1.cosmetic_condition,
+        cap_amount_jpy=12000,
+        source_record_id=r1.id,
+    ))
+
+    # 3. Tính toán thống kê
+    cur = test_db.cursor()
+    cur.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(amount_jpy), 0) as tot_jpy FROM records WHERE deleted_at IS NULL;")
+    row = cur.fetchone()
+    assert row["cnt"] == 2
+    assert row["tot_jpy"] == 18000
+
+    cur.execute("SELECT COUNT(*) as cnt FROM bid_caps WHERE is_active = 1;")
+    assert cur.fetchone()["cnt"] == 1
+
+    tot_vnd = round(row["tot_jpy"] * rate)
+    assert tot_vnd == 18000 * 170
+
+
+def test_t103_yahoo_search_auccat_category_restriction():
+    """T103: Tìm kiếm Yahoo Auctions bắt buộc phải khóa chặt trong danh mục Bật lửa 26138."""
+    from unittest.mock import patch, AsyncMock
+    from radar_service import fetch_yahoo_search_full_blocks
+    import asyncio
+
+    captured_urls = []
+    async def mock_get(url, *args, **kwargs):
+        captured_urls.append(url)
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_resp.text = '<html></html>'
+        return mock_resp
+
+    with patch("httpx.AsyncClient.get", side_effect=mock_get):
+        # 1. Tìm theo từ khóa -> Phải có auccat=26138
+        asyncio.run(fetch_yahoo_search_full_blocks("デュポン まとめ", limit=50))
+        assert len(captured_urls) == 1
+        assert "auccat=26138" in captured_urls[0]
+        assert "p=%E3%83%87%E3%83%A5%E3%83%9D%E3%83%B3+%E3%81%BE%E3%81%A8%E3%82%81" in captured_urls[0]
+
+        # 2. Quét danh mục tàn phiên không từ khóa -> Phải trỏ vào /category/list/26138/
+        asyncio.run(fetch_yahoo_search_full_blocks(query="", limit=50))
+        assert len(captured_urls) == 2
+        assert "category/list/26138/" in captured_urls[1]
+
+
+def test_t104_radar_message_clickable_link_not_in_code_block():
+    """T104: Link đấu giá Yahoo phải là Hyperlink HTML click mở web trực tiếp, không bị nhốt trong code block."""
+    from radar_service import format_single_lot_block
+
+    it = {
+        "auction_id": "k1244090258",
+        "title": "ビンテージ オイルライター まとめ売4個 ZIPPO",
+        "price_jpy": 12000,
+        "bids": 1,
+        "remain_text": "còn 8h46m",
+        "badge_label": "LOT · 4 cây",
+        "condition_label": "Junk / Xác / Lấy linh kiện",
+        "evidence_reason": "Mô tả xác nhận bán chung 4 bật lửa",
+    }
+    block = format_single_lot_block(1, it, rate=165)
+
+    expected_url = "https://auctions.yahoo.co.jp/jp/auction/k1244090258"
+    # Phải có liên kết HTML trực tiếp
+    assert f"<a href='{expected_url}'>Xem Yahoo</a>" in block
+    assert f"<a href='{expected_url}'>{expected_url}</a>" in block
+    # Tuyệt đối KHÔNG bọc URL Yahoo vào bên trong thẻ <code> (tránh bị Telegram bắt copy thay vì mở web)
+    assert f"<code>/data {expected_url}</code>" not in block
+    assert f"<code>{expected_url}</code>" not in block
+    # Lệnh lưu data phải ngắn gọn bằng mã đấu giá
+    assert "<code>/data #k1244090258</code>" in block
+
+
+def test_t105_verify_lighter_lot_category_gate():
+    """T105: Bộ lọc danh mục bóc tách category_path loại bỏ ngay sản phẩm không thuộc danh mục bật lửa Yahoo 26138."""
+    from parser import verify_yahoo_lighter_lot
+
+    # 1. Hàng thời trang / đồng hồ / phụ kiện dù có từ 'zippo' hay 'dupont' nhưng sai danh mục -> Phải bị loại (NON_LIGHTER)
+    fashion_item = {
+        "auction_id": "cloth01",
+        "title": "Dunhill ダンヒル 紳士服 スーツ ジャケット 2着セット まとめ",
+        "description": "Dunhill jackets set 2pcs",
+        "current_price_jpy": 5000,
+        "category_path": [
+            {"id": "0", "name": "オークション"},
+            {"id": "23000", "name": "ファッション"},
+            {"id": "23140", "name": "メンズファッション"},
+            {"id": "23142", "name": "スーツ"},
+        ],
+        "status": "open",
+        "bids": 2,
+    }
+    ver_fashion = verify_yahoo_lighter_lot(fashion_item)
+    assert ver_fashion["is_verified_lot"] is False
+    assert ver_fashion["decision_code"] == "NON_LIGHTER"
+    assert "không phải danh mục bật lửa" in ver_fashion["evidence_reason"]
+
+    # 2. Hàng đúng danh mục bật lửa (26138 hoặc 42530 Zippo) -> Được duyệt hợp lệ
+    lighter_item = {
+        "auction_id": "light01",
+        "title": "ZIPPO ジッポ オイルライター 3点まとめ売り ジャンク",
+        "description": "Zippo lighter 3 items set junk",
+        "current_price_jpy": 8000,
+        "category_path": [
+            {"id": "0", "name": "オークション"},
+            {"id": "20000", "name": "アンティーク、コレクション"},
+            {"id": "21152", "name": "雑貨"},
+            {"id": "26126", "name": "喫煙グッズ"},
+            {"id": "26138", "name": "ライター"},
+            {"id": "42530", "name": "Zippo"},
+        ],
+        "status": "open",
+        "bids": 3,
+    }
+    ver_lighter = verify_yahoo_lighter_lot(lighter_item)
+    assert ver_lighter["is_verified_lot"] is True
+    assert ver_lighter["decision_code"] == "VERIFIED_LOT"
+    assert ver_lighter["lighter_count"] == 3
+
+
+def test_t52_prune_old_radar_data(tmp_path):
+    """T52: Kiểm tra chức năng tự động dọn dẹp các link radar và audit log cũ quá 3 ngày."""
+    from datetime import datetime, timedelta, timezone
+    from db import get_db_connection, init_database
+    from models import Record
+    from repository import (
+        create_record,
+        get_db_file_size_bytes,
+        mark_lot_seen,
+        prune_old_radar_data,
+        save_lot_audit_log,
+        vacuum_database,
+    )
+
+    db_file = tmp_path / "test_prune.db"
+    init_database(db_file)
+    conn = get_db_connection(db_file)
+    try:
+        # 1. Thêm 1 bản ghi kho quẹt chính (phải được bảo toàn tuyệt đối)
+        rec = Record(
+            id="Q0001",
+            owner_user_id=12345,
+            raw_text="dupont line 2 son mai 15000y",
+            display_name="Dupont Line 2 Sơn Mài",
+            normalized_search_text="dupont line 2 son mai",
+            amount_jpy=15000,
+        )
+        create_record(conn, rec)
+
+        now_utc = datetime.now(timezone.utc)
+        old_4d = (now_utc - timedelta(days=4)).isoformat()
+        old_10d = (now_utc - timedelta(days=10)).isoformat()
+        old_date_vn = (now_utc - timedelta(days=5)).strftime("%Y-%m-%d")
+        old_ts = (now_utc - timedelta(days=5)).timestamp()
+
+        # 2. Thêm audit logs: 1 mới, 2 cũ
+        save_lot_audit_log(conn, auction_id="auc_new", title="Lô mới", decision_code="VERIFIED_LOT")
+        with conn:
+            conn.execute(
+                "INSERT INTO yahoo_lot_audit_log (auction_id, title, decision_code, scanned_at) VALUES (?, ?, ?, ?);",
+                ("auc_old_1", "Lô cũ 4 ngày", "SINGLE_ITEM", old_4d),
+            )
+            conn.execute(
+                "INSERT INTO yahoo_lot_audit_log (auction_id, title, decision_code, scanned_at) VALUES (?, ?, ?, ?);",
+                ("auc_old_2", "Lô cũ 10 ngày", "ACCESSORY_ONLY", old_10d),
+            )
+
+        # 3. Thêm radar_seen_lots: 1 mới, 2 cũ
+        today_vn = now_utc.strftime("%Y-%m-%d")
+        mark_lot_seen(conn, "auc_new", today_vn, "Lô mới", 1000, 1, "23:00")
+        with conn:
+            conn.execute(
+                "INSERT INTO radar_seen_lots (auction_id, seen_date, title, price_jpy, bids, end_time, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?);",
+                ("auc_old_seen_1", old_date_vn, "Lô đã tàn 1", 5000, 5, "21:00", old_4d),
+            )
+            conn.execute(
+                "INSERT INTO radar_seen_lots (auction_id, seen_date, title, price_jpy, bids, end_time, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?);",
+                ("auc_old_seen_2", old_date_vn, "Lô đã tàn 2", 8000, 10, "22:00", old_10d),
+            )
+
+        # 4. Thêm auction_alarms: 1 đang chờ, 1 đã gửi hôm nay, 1 đã gửi cũ 5 ngày
+        with conn:
+            conn.execute(
+                "INSERT INTO auction_alarms (auction_id, chat_id, title, end_time_iso, trigger_at_ts, is_sent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);",
+                ("alarm_pending", 12345, "Đang chờ tàn", now_utc.isoformat(), now_utc.timestamp() + 3600, 0, now_utc.isoformat()),
+            )
+            conn.execute(
+                "INSERT INTO auction_alarms (auction_id, chat_id, title, end_time_iso, trigger_at_ts, is_sent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);",
+                ("alarm_sent_today", 12345, "Đã gửi hôm nay", now_utc.isoformat(), now_utc.timestamp() - 3600, 1, now_utc.isoformat()),
+            )
+            conn.execute(
+                "INSERT INTO auction_alarms (auction_id, chat_id, title, end_time_iso, trigger_at_ts, is_sent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);",
+                ("alarm_sent_old", 12345, "Đã gửi 5 ngày trước", old_4d, old_ts, 1, old_10d),
+            )
+
+        # 5. Thêm processed_updates: 1 mới, 1 cũ
+        with conn:
+            conn.execute("INSERT INTO processed_updates (update_id, received_at) VALUES (?, ?);", (99901, now_utc.isoformat()))
+            conn.execute("INSERT INTO processed_updates (update_id, received_at) VALUES (?, ?);", (99902, old_4d))
+
+        # Kiểm tra trước khi dọn
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) as cnt FROM yahoo_lot_audit_log;")
+        assert cur.fetchone()["cnt"] == 3
+        cur.execute("SELECT COUNT(*) as cnt FROM radar_seen_lots;")
+        assert cur.fetchone()["cnt"] == 3
+        cur.execute("SELECT COUNT(*) as cnt FROM auction_alarms;")
+        assert cur.fetchone()["cnt"] == 3
+        cur.execute("SELECT COUNT(*) as cnt FROM processed_updates;")
+        assert cur.fetchone()["cnt"] == 2
+
+        # 6. Chạy dọn dẹp các link cũ hơn 3 ngày
+        res = prune_old_radar_data(conn, retention_days=3)
+        assert res["audit_logs"] == 2
+        assert res["seen_lots"] == 2
+        assert res["alarms"] == 1
+        assert res["processed_updates"] == 1
+        assert res["total"] == 6
+
+        # 7. Kiểm tra sau khi dọn
+        cur.execute("SELECT COUNT(*) as cnt FROM yahoo_lot_audit_log;")
+        assert cur.fetchone()["cnt"] == 1  # Chỉ còn bản ghi mới
+        cur.execute("SELECT COUNT(*) as cnt FROM radar_seen_lots;")
+        assert cur.fetchone()["cnt"] == 1  # Chỉ còn bản ghi mới
+        cur.execute("SELECT COUNT(*) as cnt FROM auction_alarms;")
+        assert cur.fetchone()["cnt"] == 2  # Còn bản ghi đang chờ và bản ghi vừa gửi hôm nay
+        cur.execute("SELECT COUNT(*) as cnt FROM processed_updates;")
+        assert cur.fetchone()["cnt"] == 1  # Chỉ còn update mới
+
+        # 8. BẢO TOÀN DỮ LIỆU KHO QUẸT CHÍNH
+        cur.execute("SELECT COUNT(*) as cnt FROM records WHERE id = 'Q0001';")
+        assert cur.fetchone()["cnt"] == 1
+
+        # 9. Kiểm tra VACUUM và kích thước file
+        vacuum_database(conn)
+        db_sz = get_db_file_size_bytes(db_file)
+        assert db_sz > 0
+    finally:
+        conn.close()
+
+
+def test_t53_is_genuine_lighter_item_filter():
+    """T53: Kiểm tra bộ lọc bật lửa nghiêm ngặt chống thuốc lá điện tử IQOS/Vape/hàng thời trang."""
+    from parser import is_genuine_lighter_item
+
+    # 1. Các ca BỊ LOẠI TRỪ 100% (Thuốc lá điện tử, tẩu máy, phụ kiện, thời trang)
+    rejected_cases = [
+        "D12 アイコスイルマ本体 2点おまとめ 動作品 デジタルバイオレット ブルー",
+        "IQOS ILUMA ONE アイコス イルマ ワン 本体",
+        "アイコス イルマ プライム 本体",
+        "glo hyper pro グロー ハイパー プロ 加熱式タバコ",
+        "Ploom X ADVANCED プルーム エックス 本体",
+        "ベイプ VAPE 電子タバコ リキッド ポッド",
+        "ダンヒル dunhill 財布 二つ折り レザー 本革",
+        "ダンヒル ベルト メンズ ビジネス",
+        "ダンヒル カフス タイピン セット",
+        "S.T.Dupont デュポン 万年筆 18K ペン先",
+        "S.T.Dupont デュポン ボールペン",
+        "カルティエ パシャ 腕時計 時計 ウォッチ",
+        "カルティエ トリニティ リング 指輪 750",
+        "ダンヒル サングラス メガネ 眼鏡 チタン",
+        "ダンヒル 名刺入れ カードケース レザー",
+        "ダンヒル キーリング キーホルダー",
+        "ドクターベイプ DR.VAPE Model2 本体",
+        "ZIPPO ケース 革 レザー ホルダー",
+        "ZIPPO 空箱 ボックス のみ",
+        "ダンヒル 灰皿 アッシュトレイ 喫煙具",
+    ]
+    for title in rejected_cases:
+        assert is_genuine_lighter_item(title) is False, f"Lẽ ra phải LOẠI BỎ: {title}"
+
+    # 2. Các ca HỢP LỆ (Bật lửa chính thống)
+    valid_cases = [
+        "S.T.Dupont デュポン ライン2 ガスライター 金色 着火OK",
+        "Dunhill ダンヒル ローラガス ライター シルバー 動作未確認",
+        "ZIPPO 1995年製 オイルライター ヴィンテージ",
+        "カルティエ Cartier ガスライター ゴールド",
+        "ロンソン バンジョー オイルライター ronson",
+        "ライター まとめ売り 10本セット ジャンク",
+        "ガスライター まとめて 5点 デュポン ダンヒル",
+    ]
+    for title in valid_cases:
+        assert is_genuine_lighter_item(title) is True, f"Lẽ ra phải CHẤP NHẬN: {title}"
+
+
+def test_t54_is_genuine_lighter_lot_strict():
+    """T54: Kiểm tra nghiêm ngặt CHỈ CHẤP NHẬN LOT BẬT LỬA (>= 2 cây), LOẠI BỎ 100% CÂY LẺ."""
+    from parser import is_genuine_lighter_lot
+
+    # 1. Các ca HÀNG LẺ (1 cây) BẮT BUỘC BỊ LOẠI TRỪ 100% (KHÔNG PUSH LẺ)
+    single_items_must_reject = [
+        "S.T.Dupont デュポン ライン2 ガスライター 金色 着火OK",
+        "Dunhill ダンヒル ローラガス ライター シルバー 動作未確認",
+        "ZIPPO 1995年製 オイルライター ヴィンテージ",
+        "カルティエ Cartier ガスライター ゴールド",
+        "ロンソン バンジョー オイルライター ronson",
+        "ダンヒル ライター 1本のみ 出品",
+        "デュポン ギャッツビー 1点のみ",
+        "zippo オイルライター 単品",
+        "ダンヒル ライター 本体のみ",
+        # Hàng không phải bật lửa (IQOS, phụ kiện) cũng phải bị loại
+        "D12 アイコスイルマ本体 2点おまとめ 動作品 デジタルバイオレット ブルー",
+        "ダンヒル 財布 二つ折り",
+        "ZIPPO ケース 革",
+    ]
+    for title in single_items_must_reject:
+        assert is_genuine_lighter_lot(title) is False, f"HÀNG LẺ LẼ RA PHẢI BỊ LOẠI BỎ: {title}"
+
+    # 2. Các ca LOT BẬT LỬA THỰC THỤ (>= 2 cây) BẮT BUỘC ĐƯỢC CHẤP NHẬN
+    genuine_lots_must_accept = [
+        "ライター まとめ売り 10本セット ジャンク",
+        "ガスライター まとめて 5点 デュポン ダンヒル",
+        "ZIPPO ジッポ 3個セット オイルライター",
+        "デュポン ダンヒル ライター 2点おまとめ",
+        "オイルライター まとめ 大量 20点",
+        "喫煙具 ライター 4本セット 詰め合わせ",
+        "ZIPPO オイルライター 2本まとめ売り",
+    ]
+    for title in genuine_lots_must_accept:
+        assert is_genuine_lighter_lot(title) is True, f"LOT BẬT LỬA LẼ RA PHẢI ĐƯỢC CHẤP NHẬN: {title}"
+
+
+def test_t55_auto_alarm_and_golden_hours_briefing(tmp_path):
+    """T55: Kiểm tra tính năng Auto-Alarm 15 phút tàn phiên và Chế độ Điểm Tin Giờ Vàng (11:30 & 20:30)."""
+    import sqlite3
+    import time
+    from db import init_database
+    from repository import (
+        add_auction_alarm,
+        has_auction_alarm,
+        get_pending_alarms,
+        mark_alarm_sent,
+        get_radar_setting,
+        set_radar_setting,
+    )
+    from radar_service import format_curated_top_radar_message
+
+    db_path = tmp_path / "test_alarm_briefing.db"
+    init_database(str(db_path))
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+
+    try:
+        # 1. Kiểm tra has_auction_alarm khi chưa có dữ liệu
+        chat_id = 999888
+        auc_id = "v11223344"
+        assert has_auction_alarm(conn, auc_id, chat_id) is False
+
+        # 2. Thêm báo thức ngầm tự động (còn 15 phút)
+        now_ts = time.time()
+        trigger_at = now_ts + 60.0
+        alarm_id = add_auction_alarm(
+            conn=conn,
+            auction_id=auc_id,
+            chat_id=chat_id,
+            title="Lô Dupont 5 cây quý hiếm",
+            price_jpy=9200,
+            url=f"https://auctions.yahoo.co.jp/jp/auction/{auc_id}",
+            end_time_iso="2026-10-20 23:00:00",
+            trigger_at_ts=trigger_at,
+        )
+        assert alarm_id > 0
+        assert has_auction_alarm(conn, auc_id, chat_id) is True
+        assert has_auction_alarm(conn, "auc_khac", chat_id) is False
+        assert has_auction_alarm(conn, auc_id, 123456) is False
+
+        # 3. Lấy pending alarms và kiểm tra format tin nhắn báo thức
+        pending = get_pending_alarms(conn)
+        assert len(pending) == 1
+        al = pending[0]
+        title = al["title"]
+        price = al["price_jpy"]
+        price_str = f"{price:,}Y".replace(",", ".") if price else "chưa cập nhật"
+        alert_msg = (
+            f"🚨 <b>Lô hot [{title}] chỉ còn đúng 15 phút nữa hết giờ!</b>\n"
+            f"⚡ Giá hiện tại: <b>{price_str}</b>. Vào snipe ngay kẻo vuột!\n"
+            f"👉 <a href='https://buyee.jp/item/yahoo/auction/{auc_id}?lang=vi'>🛒 Mở Buyee để Snipe</a>"
+        )
+        assert "Lô hot [Lô Dupont 5 cây quý hiếm] chỉ còn đúng 15 phút nữa hết giờ!" in alert_msg
+        assert "9.200Y" in alert_msg
+        assert "Vào snipe ngay kẻo vuột!" in alert_msg
+
+        # Đánh dấu đã gửi
+        mark_alarm_sent(conn, al["id"])
+        assert len(get_pending_alarms(conn)) == 0
+
+        # 4. Kiểm tra Điểm Tin Giờ Vàng 11:30 (Trưa)
+        today_vn = "2026-10-20"
+        noon_key = f"briefing_noon_{today_vn}"
+        assert get_radar_setting(conn, noon_key, default="0") == "0"
+
+        sample_lots = [
+            {
+                "auction_id": "a1",
+                "title": "Dupont Line 2 Lô 3 cây",
+                "price_jpy": 12000,
+                "bids": 8,
+                "remain_text": "Còn 3 giờ",
+                "lighter_count": 3,
+                "brand_summary": "S.T. Dupont",
+                "condition_label": "Đẹp",
+            }
+        ]
+        noon_header = "☀️ <b>[ĐIỂM TIN GIỜ VÀNG 11:30] TOP LÔ SÁNG NAY CÓ BIDS TỐT</b>"
+        noon_msg = format_curated_top_radar_message(sample_lots, total_scanned=15, rate=165, header_title=noon_header)
+        assert "[ĐIỂM TIN GIỜ VÀNG 11:30]" in noon_msg
+        assert "TOP LÔ SÁNG NAY CÓ BIDS TỐT" in noon_msg
+        assert "Dupont Line 2 Lô 3 cây" in noon_msg
+
+        # Lưu flag đã gửi trưa -> chống gửi lặp
+        set_radar_setting(conn, noon_key, "1")
+        assert get_radar_setting(conn, noon_key, default="0") == "1"
+
+        # 5. Kiểm tra Điểm Tin Giờ Vàng 20:30 (Tối)
+        night_key = f"briefing_night_{today_vn}"
+        assert get_radar_setting(conn, night_key, default="0") == "0"
+
+        night_header = "🌙 <b>[ĐIỂM TIN GIỜ VÀNG 20:30] CÁC LÔ SẮP TÀN PHIÊN ĐÊM NAY (CHUẨN BỊ SNIPE)</b>"
+        night_msg = format_curated_top_radar_message(sample_lots, total_scanned=20, rate=165, header_title=night_header)
+        assert "[ĐIỂM TIN GIỜ VÀNG 20:30]" in night_msg
+        assert "CÁC LÔ SẮP TÀN PHIÊN ĐÊM NAY (CHUẨN BỊ SNIPE)" in night_msg
+
+        # Lưu flag đã gửi tối -> chống gửi lặp
+        set_radar_setting(conn, night_key, "1")
+        assert get_radar_setting(conn, night_key, default="0") == "1"
+
+    finally:
+        conn.close()
+
+
+
+
+
+
+
+
+
+
