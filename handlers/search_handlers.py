@@ -216,6 +216,20 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not update.effective_message or not update.effective_message.text:
         return
     text = update.effective_message.text.strip()
+    t_clean = text.lower().strip()
+
+    # 0.0 Bắt lệnh hoặc từ khóa Mercari để thông báo rõ ràng là đã tắt
+    if "⚡ mercari" in t_clean or t_clean in ["/mercari", "mercari", "radar mercari", "dò mercari", "do mercari"]:
+        mercari_disabled_msg = (
+            "⚡ <b>CHẾ ĐỘ RADAR: TẬP TRUNG 100% SÀN YAHOO AUCTIONS</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "Tính năng dò Mercari đã được tắt để dồn toàn bộ tài nguyên quét sâu cho các phiên đấu giá.\n\n"
+            "🎯 Hệ thống hiện đang chạy dò tự động các lô bật lửa có bid kết thúc hôm nay trên <b>Yahoo Auctions</b>.\n"
+            "👉 Bấm /radar hoặc bấm nút <b>[🎯 Radar Lô Hôm Nay]</b> trên bàn phím menu để xem danh sách mới nhất!"
+        )
+        await update.effective_message.reply_html(mercari_disabled_msg)
+        return
+
     if text.startswith("/"):
         return
 
@@ -244,10 +258,6 @@ async def text_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if "❓ Hướng Dẫn" in text:
         from handlers.start import help_command
         await help_command(update, context)
-        return
-    if "⚡ Mercari Săn Nhanh" in text or "⚡ Mercari" in text:
-        from handlers.mercari_handlers import mercari_command
-        await mercari_command(update, context)
         return
     if "📱 Bảng Điều Khiển" in text or "📱 WebApp Dashboard" in text:
         from bot import dashboard_command

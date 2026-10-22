@@ -2616,7 +2616,7 @@ def test_t51_yahoo_lot_comprehensive_88_edge_cases():
 
 
 # ==========================================
-# T31 - T35: Kiểm thử mở rộng (eBay, Mercari, Deal Score, Dashboard API)
+# T31 - T35: Kiểm thử mở rộng (eBay, Yahoo Radar, Deal Score, Dashboard API)
 # ==========================================
 
 def test_t31_ebay_price_parsing_and_conversion():
@@ -3187,6 +3187,56 @@ def test_t55_auto_alarm_and_golden_hours_briefing(tmp_path):
 
     finally:
         conn.close()
+
+
+@pytest.mark.asyncio
+async def test_t41_mercari_disabled_and_yahoo_radar_active():
+    """T41: Kiểm thử xác nhận tính năng dò Mercari đã tắt an toàn và Yahoo Radar hoạt động đầy đủ."""
+    from unittest.mock import AsyncMock, MagicMock
+    from handlers.search_handlers import text_search_handler
+    from handlers.radar_handlers import _resolve_brand_mode
+    from radar_service import BRAND_RADAR_CONFIGS, LOT_SEARCH_QUERIES
+
+    # 1. Kiểm tra khi người dùng gõ Mercari: bot thông báo tắt và hướng dẫn sang Yahoo Radar, không bị crash ModuleNotFoundError
+    for test_kw in ["⚡ Mercari Săn Nhanh", "⚡ Mercari", "/mercari", "mercari", "radar mercari"]:
+        mock_msg = MagicMock()
+        mock_msg.text = test_kw
+        mock_msg.reply_html = AsyncMock()
+
+        mock_update = MagicMock()
+        mock_update.effective_message = mock_msg
+        mock_update.message = mock_msg
+
+        mock_context = MagicMock()
+        mock_context.bot_data = {}
+
+        await text_search_handler(mock_update, mock_context)
+        mock_msg.reply_html.assert_called_once()
+        sent_html = mock_msg.reply_html.call_args[0][0]
+        assert "TẬP TRUNG 100% SÀN YAHOO AUCTIONS" in sent_html
+        assert "Tính năng dò Mercari đã được tắt" in sent_html
+        assert "Yahoo Auctions" in sent_html
+
+    # 2. Kiểm tra các chế độ Radar Yahoo Auctions hoạt động chuẩn mực
+    expected_modes = ["gas_da", "dau", "zippo", "thapcam", "lot", "dupont", "dunhill"]
+    for m in expected_modes:
+        assert m in BRAND_RADAR_CONFIGS
+        assert len(BRAND_RADAR_CONFIGS[m]["queries"]) >= 3
+        assert BRAND_RADAR_CONFIGS[m]["title"]
+
+    # 3. Phân giải danh mục Yahoo Radar từ tham số lệnh
+    mode, title = _resolve_brand_mode(["gas"])
+    assert mode == "gas_da" and "GAS ĐÁ" in title
+    mode, title = _resolve_brand_mode(["dau"])
+    assert mode == "dau" and "DẦU" in title
+    mode, title = _resolve_brand_mode(["zippo"])
+    assert mode == "zippo" and "ZIPPO" in title
+    mode, title = _resolve_brand_mode(["thapcam"])
+    assert mode == "thapcam" and "THẬP CẨM" in title
+
+    # 4. Xác nhận danh sách từ khóa quét lô Yahoo đầy đủ
+    assert len(LOT_SEARCH_QUERIES) >= 20
+
 
 
 

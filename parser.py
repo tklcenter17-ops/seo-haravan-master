@@ -1114,7 +1114,7 @@ _LIGHTER_INDICATOR_RE = re.compile(
 
 
 def is_genuine_lighter_item(title: str, description: str = "") -> bool:
-    """Kiểm tra nghiêm ngặt xem sản phẩm (từ Mercari, eBay, Yahoo) có đúng là BẬT LỬA hay không.
+    """Kiểm tra nghiêm ngặt xem sản phẩm (từ Yahoo Auctions, eBay) có đúng là BẬT LỬA hay không.
     
     Loại bỏ 100% thuốc lá điện tử (IQOS, Iluma, Glo, Ploom, Vape), hàng thời trang (ví, thắt lưng, bút, đồng hồ),
     phụ kiện đơn thuần (chỉ bán bao da/case, hộp rỗng, đá lửa, gạt tàn), và bật lửa nhựa dùng 1 lần 100 yên.
