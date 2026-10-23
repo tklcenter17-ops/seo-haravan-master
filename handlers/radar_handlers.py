@@ -81,16 +81,18 @@ def _get_radar_page_keyboard(
         InlineKeyboardButton(c10, callback_data="radar_count:10"),
     ])
 
-    # Hàng 3: Lọc nhanh 4 phân loại chính theo yêu cầu người dùng
+    # Hàng 3: Lọc nhanh các phân loại chính theo yêu cầu người dùng
     b_thapcam = "🔘 Thập Cẩm" if current_mode in ("lot", "thapcam") else "📦 Thập Cẩm"
     b_gas = "🔘 Gas Đá" if current_mode in ("gas_da", "gas") else "⚡ Gas Đá"
     b_dau = "🔘 Dầu" if current_mode in ("dau", "oil") else "🛢️ Dầu"
     b_zippo = "🔘 Zippo" if current_mode == "zippo" else "🔥 Zippo"
+    b_gem = "🔘 Di Vật" if current_mode == "gem" else "💎 Di Vật"
     keyboard.append([
         InlineKeyboardButton(b_thapcam, callback_data="radar_brand:thapcam"),
         InlineKeyboardButton(b_gas, callback_data="radar_brand:gas_da"),
         InlineKeyboardButton(b_dau, callback_data="radar_brand:dau"),
         InlineKeyboardButton(b_zippo, callback_data="radar_brand:zippo"),
+        InlineKeyboardButton(b_gem, callback_data="radar_brand:gem"),
     ])
 
     # Hàng 4: Lọc theo tình trạng
@@ -136,6 +138,8 @@ def _resolve_brand_mode(args: list[str]) -> tuple[str, str]:
             return "zippo", "ZIPPO (LÔ)"
         elif al in ("thapcam", "thap_cam", "mix", "honhop"):
             return "thapcam", "LÔ THẬP CẨM"
+        elif al in ("gem", "gems", "divat", "di_vat", "kho", "don_kho", "ve_chai"):
+            return "gem", "💎 DI VẬT DỌN KHO"
         elif al in ("dupont", "dp"):
             return "dupont", "S.T. DUPONT"
         elif al in ("dunhill", "dh"):
@@ -354,6 +358,7 @@ async def radar_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             "dau": "BẬT LỬA DẦU",
             "zippo": "ZIPPO (LÔ)",
             "thapcam": "LÔ THẬP CẨM",
+            "gem": "💎 DI VẬT DỌN KHO",
             "lot": "LÔ BẬT LỬA",
             "dupont": "S.T. DUPONT",
             "dunhill": "ALFRED DUNHILL",
@@ -541,7 +546,11 @@ async def radar_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             await context.bot.send_media_group(chat_id=query.message.chat_id, media=media_group)
         except Exception as e:
             logger.error(f"Lỗi khi gửi album ảnh: {e}")
-            await query.message.reply_text(f"Không thể gửi album ảnh: {e}")
+            fallback_text = "📸 <b>Danh sách ảnh các lô hôm nay:</b>\n" + "\n".join([
+                f"• #{i}. <a href='{l.get('image_url')}'>{l.get('title')[:30]}...</a> | {l.get('price_jpy', 0):,}Y (<a href='{l.get('url')}'>Xem</a>)"
+                for i, l in enumerate(valid_lots[:8], start=1)
+            ]).replace(",", ".")
+            await query.message.reply_html(fallback_text)
 
 
 async def radar_img_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -582,10 +591,18 @@ async def radar_img_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             media_group.append(InputMediaPhoto(media=lot["image_url"], caption=caption, parse_mode="HTML"))
 
         await wait_msg.delete()
-        await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group)
+        try:
+            await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group)
+        except Exception as e:
+            logger.error(f"Lỗi khi gửi album ảnh: {e}", exc_info=True)
+            fallback_text = "📸 <b>Danh sách ảnh các lô hôm nay:</b>\n" + "\n".join([
+                f"• #{i}. <a href='{l.get('image_url')}'>{l.get('title')[:30]}...</a> | {l.get('price_jpy', 0):,}Y (<a href='{l.get('url')}'>Xem</a>)"
+                for i, l in enumerate(top_lots, start=1)
+            ]).replace(",", ".")
+            await msg.reply_html(fallback_text)
     except Exception as e:
-        logger.error(f"Lỗi khi gửi album ảnh: {e}", exc_info=True)
-        await wait_msg.edit_text(f"⚠️ <i>Lỗi gửi album ảnh: {e}</i>", parse_mode="HTML")
+        logger.error(f"Lỗi khi tải hoặc chuẩn bị album ảnh: {e}", exc_info=True)
+        await wait_msg.edit_text(f"⚠️ <i>Lỗi: {e}</i>", parse_mode="HTML")
 
 
 async def img_detail_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -647,12 +664,124 @@ async def img_detail_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         if media_group:
             await wait_msg.delete()
-            if len(media_group) >= 2:
-                await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group)
-            else:
-                await context.bot.send_photo(chat_id=msg.chat_id, photo=media_group[0].media, caption=media_group[0].caption, parse_mode="HTML")
+            try:
+                if len(media_group) >= 2:
+                    await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group)
+                else:
+                    await context.bot.send_photo(chat_id=msg.chat_id, photo=media_group[0].media, caption=media_group[0].caption, parse_mode="HTML")
+            except Exception as send_err:
+                logger.error(f"Lỗi khi gửi media group #{aid}: {send_err}")
+                img_links = "\n".join([f"• <a href='{u}'>Ảnh chi tiết {idx+1}</a>" for idx, u in enumerate(imgs[:8]) if u and u.startswith("http")])
+                await msg.reply_html(
+                    f"📸 <b>ẢNH CHI TIẾT ĐẤU GIÁ #{aid}</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📦 <b>{title}</b>\n"
+                    f"💰 Giá: <b>{p_str}</b> | 🔨 <b>{bids} bids</b>\n"
+                    f"👉 <a href='{url}'>Mở Yahoo</a> | <a href='{buyee_url}'>Mở Buyee để Bid</a>\n\n"
+                    f"🖼️ <b>Link ảnh xem trực tiếp:</b>\n{img_links}\n\n"
+                    f"💡 <i>Lưu data:</i> <code>/data #{aid}</code>"
+                )
         else:
             await wait_msg.edit_text("Không có link ảnh hợp lệ để hiển thị.")
     except Exception as e:
         logger.error(f"Lỗi khi soi ảnh #{aid}: {e}", exc_info=True)
         await wait_msg.edit_text(f"⚠️ <i>Lỗi tải ảnh: {e}</i>", parse_mode="HTML")
+
+
+async def ai_inspect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lệnh /soi hoặc /soi_<aid>: Soi ảnh chuyên sâu bằng AI Vision để tìm đồ quý ẩn trong lô."""
+    msg = update.effective_message
+    if not msg:
+        return
+
+    aid = ""
+    text = msg.text or ""
+    if text.startswith("/soi_"):
+        parts = text.split()
+        cmd_part = parts[0]
+        aid = cmd_part[len("/soi_"):].strip()
+    elif context.args:
+        aid = context.args[0].strip().lstrip("#")
+    elif len(text.split()) > 1:
+        aid = text.split()[1].strip().lstrip("#")
+
+    # Nếu người dùng reply vào 1 ảnh trực tiếp
+    if msg.reply_to_message and msg.reply_to_message.photo:
+        wait_msg = await msg.reply_html("🔍 <i>AI Vision đang thẩm định ảnh này... Vui lòng chờ 3-5s.</i>")
+        try:
+            from ai_vision_service import inspect_lighter_lot_image
+            photo_file = await msg.reply_to_message.photo[-1].get_file()
+            img_bytes = await photo_file.download_as_bytearray()
+            res = await inspect_lighter_lot_image(bytes(img_bytes))
+            if res.get("success"):
+                gem_icon = "💎" if res.get("gem_detected") else "🔍"
+                report = (
+                    f"{gem_icon} <b>KẾT QUẢ AI VISION SOI ẢNH TRỰC TIẾP</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"{res.get('summary_short', '')}\n\n"
+                    f"📝 <b>Chi tiết thẩm định:</b>\n{res.get('raw_text', '')}"
+                )
+                await wait_msg.edit_text(report, parse_mode="HTML")
+            else:
+                await wait_msg.edit_text(f"⚠️ <i>Lỗi AI Soi: {res.get('error', 'Không xác định')}</i>", parse_mode="HTML")
+        except Exception as err:
+            logger.error(f"Lỗi khi soi ảnh trực tiếp: {err}")
+            await wait_msg.edit_text(f"⚠️ <i>Lỗi: {err}</i>", parse_mode="HTML")
+        return
+
+    if not aid:
+        await msg.reply_html(
+            "❓ <b>Cách dùng AI Vision Soi ảnh:</b>\n"
+            "1. Nhập mã lô: <code>/soi t1248688687</code> hoặc bấm link <code>/soi_t1248688687</code>\n"
+            "2. Hoặc gửi/reply vào bất kỳ ảnh nào với lệnh <code>/soi</code>"
+        )
+        return
+
+    wait_msg = await msg.reply_html(f"🔍 <i>Đang lấy ảnh và gọi AI Vision thẩm định phiên #{aid}...</i>")
+    try:
+        from parser import fetch_yahoo_auction_info
+        from ai_vision_service import inspect_lighter_lot_image
+        from bot import download_image_bytes
+
+        info = await fetch_yahoo_auction_info(aid)
+        imgs = info.get("images", [])
+        if not imgs and info.get("image_url"):
+            imgs = [info["image_url"]]
+
+        if not imgs:
+            await wait_msg.edit_text(f"⚠️ Không tìm thấy ảnh cho phiên <code>#{aid}</code>.")
+            return
+
+        main_img = imgs[0]
+        photo_bytes = await download_image_bytes(main_img)
+        if not photo_bytes:
+            await wait_msg.edit_text(f"⚠️ Không thể tải dữ liệu ảnh từ Yahoo để gửi AI.")
+            return
+
+        res = await inspect_lighter_lot_image(photo_bytes)
+        if res.get("success"):
+            title = info.get("title", f"Bật lửa #{aid}")
+            price = info.get("current_price_jpy")
+            p_str = f"{price:,} yên".replace(",", ".") if price else "Đang đấu"
+            bids = info.get("bids", 0)
+            url = info.get("url", f"https://auctions.yahoo.co.jp/jp/auction/{aid}")
+            buyee_url = f"https://buyee.jp/item/yahoo/auction/{aid}?lang=vi"
+            gem_icon = "💎" if res.get("gem_detected") else "🔍"
+
+            report = (
+                f"{gem_icon} <b>KẾT QUẢ AI VISION SOI LÔ #{aid}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📦 <b>{title[:100]}</b>\n"
+                f"💰 Giá: <b>{p_str}</b> | 🔨 <b>{bids} bids</b>\n\n"
+                f"{res.get('summary_short', '')}\n\n"
+                f"📝 <b>Chi tiết nhận diện:</b>\n{res.get('raw_text', '')}\n\n"
+                f"👉 <a href='{buyee_url}'>🛒 Mở Buyee Đấu Giá</a> | <a href='{url}'>Xem Yahoo</a>\n"
+                f"📸 Xem đủ bộ ảnh nét: /img_{aid}"
+            )
+            await wait_msg.edit_text(report, parse_mode="HTML")
+        else:
+            await wait_msg.edit_text(f"⚠️ <i>Lỗi AI Soi: {res.get('error', 'Không xác định')}</i>", parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Lỗi khi AI soi #{aid}: {e}", exc_info=True)
+        await wait_msg.edit_text(f"⚠️ <i>Lỗi: {e}</i>", parse_mode="HTML")
+

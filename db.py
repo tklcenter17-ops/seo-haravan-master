@@ -183,6 +183,27 @@ CREATE TABLE IF NOT EXISTS yahoo_lot_audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_yahoo_audit_aid ON yahoo_lot_audit_log(auction_id);
 CREATE INDEX IF NOT EXISTS idx_yahoo_audit_decision ON yahoo_lot_audit_log(decision_code, scanned_at);
+
+-- Bảng Kanban quản lý đường đi hàng hóa & P&L từ Bid -> Thu tiền
+CREATE TABLE IF NOT EXISTS kanban_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    auction_id TEXT,
+    title TEXT NOT NULL,
+    brand TEXT NOT NULL DEFAULT 'unknown',
+    stage TEXT NOT NULL DEFAULT 'bidding', -- bidding, transit, restoring, selling, sold
+    buy_price_jpy INTEGER NOT NULL DEFAULT 0,
+    buy_price_vnd INTEGER NOT NULL DEFAULT 0,
+    shipping_cost_vnd INTEGER NOT NULL DEFAULT 0,
+    repair_cost_vnd INTEGER NOT NULL DEFAULT 0,
+    sale_price_vnd INTEGER NOT NULL DEFAULT 0,
+    image_url TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kanban_stage ON kanban_items(stage);
+CREATE INDEX IF NOT EXISTS idx_kanban_aid ON kanban_items(auction_id);
 """
 
 

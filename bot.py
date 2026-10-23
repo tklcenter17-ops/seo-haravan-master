@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.request import HTTPXRequest
 from telegram.ext import (
@@ -24,7 +25,9 @@ from handlers.admin import cancel_command, clean_command, export_command, rate_c
 from handlers.caps import cap_callback, cap_command
 from handlers.data_entry import data_command, draft_callback, price_draft_callback
 from handlers.ebay_handlers import ebay_callback_handler, radarebay_command
+from ai_vision_service import inspect_lighter_lot_image
 from handlers.radar_handlers import (
+    ai_inspect_command,
     img_detail_command,
     radar_callback_handler,
     radar_command,
@@ -58,26 +61,30 @@ async def auth_and_idempotency_middleware(update: Update, context: ContextTypes.
 
     logger.info(f"👉 [NHẬN UPDATE {update.update_id}] user={user.id if user else None} (@{user.username if user else None}) | type={update.effective_chat.type if update.effective_chat else None} | content='{text_content}'")
 
-    # Nếu chưa thiết lập owner_id (owner_id == 0), tự động khoá với tài khoản đầu tiên kích hoạt
-    if cfg.owner_id == 0 and user:
+    # Nếu chưa thiết lập owner_id, tự động khoá với tài khoản đầu tiên kích hoạt
+    allowed_owners = set(cfg.owner_ids) if getattr(cfg, "owner_ids", None) else ({cfg.owner_id} if cfg.owner_id else set())
+    if not allowed_owners and user:
         save_owner_id_to_env(user.id)
-        context.bot_data["config"] = AppConfig(
+        new_cfg = AppConfig(
             bot_token=cfg.bot_token,
             owner_id=user.id,
             db_path=cfg.db_path,
             backup_dir=cfg.backup_dir,
             price_high_threshold_jpy=cfg.price_high_threshold_jpy,
+            owner_ids=(user.id,),
         )
+        context.bot_data["config"] = new_cfg
+        allowed_owners = {user.id}
         logger.info(f"Đã tự động xác thực và khoá TELEGRAM_OWNER_ID = {user.id}")
         if update.effective_message:
             await update.effective_message.reply_html(
                 f"🔐 <b>Kích hoạt bảo mật thành công!</b>\n"
-                f"Tài khoản của anh (ID: <code>{user.id}</code>) đã được khoá làm Chủ sở hữu (Owner) duy nhất của bot."
+                f"Tài khoản của anh (ID: <code>{user.id}</code>) đã được khoá làm Chủ sở hữu (Owner) của bot."
             )
 
     # 1. Kiểm tra quyền sở hữu
-    if not user or user.id != context.bot_data["config"].owner_id:
-        logger.warning(f"⛔ TỪ CHỐI USER: user_id={user.id if user else None} không khớp owner_id={context.bot_data['config'].owner_id}")
+    if not user or user.id not in allowed_owners:
+        logger.warning(f"⛔ TỪ CHỐI USER: user_id={user.id if user else None} không thuộc danh sách owner_ids={allowed_owners}")
         if update.effective_message:
             try:
                 await update.effective_message.reply_text(f"⛔ Bạn không có quyền truy cập bot này (ID của bạn: {user.id if user else 'unknown'}).")
@@ -151,6 +158,25 @@ async def inline_search_handler(update: Update, context: ContextTypes.DEFAULT_TY
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Bắt và log ngoại lệ mà không làm crash bot."""
     logger.error(f"Xảy ra lỗi khi xử lý update {update}:", exc_info=context.error)
+
+
+async def download_image_bytes(url: str, timeout: float = 6.0) -> bytes | None:
+    """Tải trực tiếp nội dung ảnh từ Yahoo CDN về RAM với timeout ngắn và headers chống chặn."""
+    if not url or not url.startswith("http"):
+        return None
+    import httpx
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Referer": "https://auctions.yahoo.co.jp/",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200 and resp.content and len(resp.content) > 500:
+                return resp.content
+    except Exception as e:
+        logger.debug(f"Không thể tải ảnh trực tiếp từ {url}: {e}")
+    return None
 
 
 async def post_init(application: Application) -> None:
@@ -227,8 +253,8 @@ async def post_init(application: Application) -> None:
         logger.info("Đã kích hoạt vòng lặp Radar: Quét ngầm, Auto-Alarm 15p Top Lô & Điểm Tin Giờ Vàng (chu kỳ 10 phút).")
         while True:
             try:
-                owner_id = cfg.owner_id
-                if owner_id:
+                target_chat_ids = list(cfg.owner_ids) if getattr(cfg, "owner_ids", None) else ([cfg.owner_id] if cfg.owner_id else [])
+                if target_chat_ids:
                     c = get_db_connection(cfg.db_path)
                     try:
                         is_enabled = (get_radar_setting(c, "auto_radar_enabled", default="1") == "1")
@@ -241,21 +267,10 @@ async def post_init(application: Application) -> None:
 
                             lots = await scan_today_lighter_lots()
 
-                            # 1. Đánh dấu các lô đã thấy vào SQLite & Gửi thông báo tức thì (Realtime Alert)
+                            # 1. Gửi thông báo tức thì (Realtime Alert) & Đánh dấu lô đã gửi thành công vào SQLite
                             for lot in lots:
                                 aid = lot.get("auction_id")
                                 if aid and not is_lot_seen(c, aid, today_vn):
-                                    mark_lot_seen(
-                                        c,
-                                        aid,
-                                        today_vn,
-                                        lot.get("title", ""),
-                                        lot.get("price_jpy", 0),
-                                        lot.get("bids", 0),
-                                        lot.get("end_time", ""),
-                                    )
-
-                                    # Báo tin nhắn lô mới phát hiện về Telegram
                                     price = lot.get("price_jpy", 0)
                                     price_vnd = round(price * rate)
                                     title = lot.get("title", "Lô bật lửa")
@@ -267,35 +282,77 @@ async def post_init(application: Application) -> None:
                                     buyee_url = f"https://buyee.jp/item/yahoo/auction/{aid}?lang=vi"
                                     photo = lot.get("image_url", "")
 
+                                    # Tải bytes ảnh từ CDN Yahoo để Telegram không bị chặn và để AI Vision soi
+                                    photo_bytes = await download_image_bytes(photo) if (photo and photo.startswith("http")) else None
+
+                                    # Pha 3: AI Vision nhận diện cây quẹt giá trị cao qua ảnh
+                                    ai_note = ""
+                                    if photo_bytes and cfg.gemini_api_key:
+                                        try:
+                                            ai_res = await inspect_lighter_lot_image(photo_bytes, api_key=cfg.gemini_api_key, timeout=7.0)
+                                            if ai_res.get("success"):
+                                                if ai_res.get("gem_detected"):
+                                                    lot_tag = f"💎 [ĐỒ HIẾM] {lot_tag}"
+                                                    lot_icon = "💎"
+                                                ai_note = f"\n{ai_res.get('summary_short', '')}\n"
+                                        except Exception as ai_err:
+                                            logger.debug(f"AI Vision soi lô {aid} bỏ qua do: {ai_err}")
+
                                     alert_text = (
                                         f"{lot_icon} <b>[YAHOO RADAR] {lot_tag} PHÁT HIỆN LÔ MỚI</b>\n"
                                         f"━━━━━━━━━━━━━━━━━━━━━\n"
-                                        f"📦 <b>{title}</b>\n"
+                                        f"📦 <b>{title[:100]}</b>\n"
                                         f"💰 Giá sàn: <b>{price:,} yên</b> (~{price_vnd:,} đ) | 🔨 Bids: <b>{bids}</b>\n"
                                         f"⏳ Thời gian: <b>{remain_str}</b>\n"
+                                        f"{ai_note}"
                                         f"👉 <a href='{buyee_url}'>🛒 Mở Buyee Đấu Giá</a> | <a href='{y_url}'>Mở Yahoo Auctions</a>\n"
                                         f"🔗 <code>{y_url}</code>\n"
-                                        f"📸 Soi ảnh: /img_{aid} | 💡 Lưu: <code>/data #{aid}</code>"
+                                        f"📸 Soi ảnh: /img_{aid} | 🤖 AI Soi lại: /soi_{aid} | 💡 Lưu: <code>/data #{aid}</code>"
                                     ).replace(",", ".")
 
-                                    try:
-                                        if photo and photo.startswith("http"):
-                                            await application.bot.send_photo(
-                                                chat_id=owner_id,
-                                                photo=photo,
-                                                caption=alert_text,
-                                                parse_mode="HTML",
-                                            )
-                                        else:
-                                            await application.bot.send_message(
-                                                chat_id=owner_id,
-                                                text=alert_text,
-                                                parse_mode="HTML",
-                                                disable_web_page_preview=False,
-                                            )
-                                        await asyncio.sleep(1.5)
-                                    except Exception as send_lot_err:
-                                        logger.warning(f"Lỗi gửi tin lô mới {aid}: {send_lot_err}")
+                                    any_sent_ok = False
+
+                                    for owner_chat_id in target_chat_ids:
+                                        sent_this = False
+                                        if photo_bytes:
+                                            try:
+                                                await application.bot.send_photo(
+                                                    chat_id=owner_chat_id,
+                                                    photo=photo_bytes,
+                                                    caption=alert_text,
+                                                    parse_mode="HTML",
+                                                )
+                                                sent_this = True
+                                                any_sent_ok = True
+                                            except Exception as send_photo_err:
+                                                logger.warning(f"Lỗi gửi photo bytes lô {aid} tới {owner_chat_id}: {send_photo_err}. Thử fallback send_message...")
+
+                                        # Fallback sang gửi tin text nếu không có ảnh hoặc gửi ảnh lỗi
+                                        if not sent_this:
+                                            try:
+                                                await application.bot.send_message(
+                                                    chat_id=owner_chat_id,
+                                                    text=alert_text,
+                                                    parse_mode="HTML",
+                                                    disable_web_page_preview=False,
+                                                )
+                                                any_sent_ok = True
+                                            except Exception as send_msg_err:
+                                                logger.warning(f"Lỗi gửi tin text lô {aid} tới {owner_chat_id}: {send_msg_err}")
+
+                                        await asyncio.sleep(1.2)
+
+                                    # Chỉ đánh dấu lô đã thấy khi ít nhất 1 tin nhắn đã được gửi thành công
+                                    if any_sent_ok:
+                                        mark_lot_seen(
+                                            c,
+                                            aid,
+                                            today_vn,
+                                            lot.get("title", ""),
+                                            lot.get("price_jpy", 0),
+                                            lot.get("bids", 0),
+                                            lot.get("end_time", ""),
+                                        )
 
                             # 2. Tự động đặt báo thức ngầm 15 phút cho Top 3 lô hot nhất trong ngày (Auto-Alarm Top Lô)
                             top_alarm_lots = curate_top_radar_lots(lots, max_items=3)
@@ -304,19 +361,20 @@ async def post_init(application: Application) -> None:
                                 aid = hot_lot.get("auction_id")
                                 rem_mins = hot_lot.get("remain_mins", 0)
                                 if aid and rem_mins > 15:
-                                    if not has_auction_alarm(c, aid, owner_id):
-                                        trigger_at = now_ts + (rem_mins - 15) * 60
-                                        add_auction_alarm(
-                                            conn=c,
-                                            auction_id=aid,
-                                            chat_id=owner_id,
-                                            title=hot_lot.get("title", "Lô bật lửa"),
-                                            price_jpy=hot_lot.get("price_jpy", 0),
-                                            url=f"https://auctions.yahoo.co.jp/jp/auction/{aid}",
-                                            end_time_iso=hot_lot.get("end_time", ""),
-                                            trigger_at_ts=trigger_at,
-                                        )
-                                        logger.info(f"Đã tự động đặt báo thức ngầm 15 phút cho lô hot {aid}: {hot_lot.get('title')} (còn {rem_mins}p)")
+                                    for owner_chat_id in target_chat_ids:
+                                        if not has_auction_alarm(c, aid, owner_chat_id):
+                                            trigger_at = now_ts + (rem_mins - 15) * 60
+                                            add_auction_alarm(
+                                                conn=c,
+                                                auction_id=aid,
+                                                chat_id=owner_chat_id,
+                                                title=hot_lot.get("title", "Lô bật lửa"),
+                                                price_jpy=hot_lot.get("price_jpy", 0),
+                                                url=f"https://auctions.yahoo.co.jp/jp/auction/{aid}",
+                                                end_time_iso=hot_lot.get("end_time", ""),
+                                                trigger_at_ts=trigger_at,
+                                            )
+                                            logger.info(f"Đã tự động đặt báo thức ngầm 15 phút cho lô hot {aid}: {hot_lot.get('title')} (còn {rem_mins}p) tới chat_id={owner_chat_id}")
 
                             # 3. Chế Độ 'Điểm Tin Giờ Vàng' (Daily Curated Briefing): Đúng 2 khung giờ
                             # Khung 1: 11:30 Trưa (Điểm danh các lô sáng mới lên sàn có bids tốt)
@@ -332,17 +390,18 @@ async def post_init(application: Application) -> None:
                                         rate=rate,
                                         header_title=header,
                                     )
-                                    try:
-                                        await application.bot.send_message(
-                                            chat_id=owner_id,
-                                            text=digest_msg,
-                                            parse_mode="HTML",
-                                            disable_web_page_preview=True,
-                                        )
-                                        set_radar_setting(c, noon_key, "1")
-                                        logger.info(f"Đã gửi Bản tin Giờ Vàng 11:30 ngày {today_vn}.")
-                                    except Exception as send_err:
-                                        logger.warning(f"Lỗi gửi tin nhắn điểm tin trưa: {send_err}")
+                                    for owner_chat_id in target_chat_ids:
+                                        try:
+                                            await application.bot.send_message(
+                                                chat_id=owner_chat_id,
+                                                text=digest_msg,
+                                                parse_mode="HTML",
+                                                disable_web_page_preview=True,
+                                            )
+                                        except Exception as send_err:
+                                            logger.warning(f"Lỗi gửi tin nhắn điểm tin trưa tới {owner_chat_id}: {send_err}")
+                                    set_radar_setting(c, noon_key, "1")
+                                    logger.info(f"Đã gửi Bản tin Giờ Vàng 11:30 ngày {today_vn}.")
 
                             # Khung 2: 20:30 Tối (Tổng hợp các lô chuẩn bị tàn phiên đêm nay của sàn Nhật: 21h - 23h)
                             is_night_window = (hour_vn == 20 and min_vn >= 30) or (hour_vn == 21 and min_vn <= 15)
@@ -359,17 +418,18 @@ async def post_init(application: Application) -> None:
                                         rate=rate,
                                         header_title=header,
                                     )
-                                    try:
-                                        await application.bot.send_message(
-                                            chat_id=owner_id,
-                                            text=digest_msg,
-                                            parse_mode="HTML",
-                                            disable_web_page_preview=True,
-                                        )
-                                        set_radar_setting(c, night_key, "1")
-                                        logger.info(f"Đã gửi Bản tin Giờ Vàng 20:30 ngày {today_vn}.")
-                                    except Exception as send_err:
-                                        logger.warning(f"Lỗi gửi tin nhắn điểm tin tối: {send_err}")
+                                    for owner_chat_id in target_chat_ids:
+                                        try:
+                                            await application.bot.send_message(
+                                                chat_id=owner_chat_id,
+                                                text=digest_msg,
+                                                parse_mode="HTML",
+                                                disable_web_page_preview=True,
+                                            )
+                                        except Exception as send_err:
+                                            logger.warning(f"Lỗi gửi tin nhắn điểm tin tối tới {owner_chat_id}: {send_err}")
+                                    set_radar_setting(c, night_key, "1")
+                                    logger.info(f"Đã gửi Bản tin Giờ Vàng 20:30 ngày {today_vn}.")
 
                     finally:
                         c.close()
@@ -552,6 +612,8 @@ def main() -> None:
     app.add_handler(CommandHandler(["radar_img", "album"], radar_img_command))
     app.add_handler(CommandHandler("img", img_detail_command))
     app.add_handler(MessageHandler(filters.Regex(r"^/img_[a-zA-Z0-9]+"), img_detail_command))
+    app.add_handler(CommandHandler(["soi", "ai"], ai_inspect_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/soi_[a-zA-Z0-9]+"), ai_inspect_command))
     app.add_handler(CommandHandler("rate", rate_command))
     app.add_handler(CommandHandler(["clean", "prune"], clean_command))
     app.add_handler(CommandHandler("dashboard", dashboard_command))

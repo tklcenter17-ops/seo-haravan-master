@@ -178,6 +178,24 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                 conn.close()
             return
 
+        if path == "/api/kanban":
+            if not self.config:
+                self._send_json({"items": [], "pnl": {}}, status=500)
+                return
+
+            conn = get_db_connection(self.config.db_path)
+            try:
+                from repository import get_kanban_items, get_kanban_pnl_summary
+                items = get_kanban_items(conn)
+                pnl = get_kanban_pnl_summary(conn)
+                self._send_json({"items": items, "pnl": pnl})
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý /api/kanban: {e}")
+                self._send_json({"items": [], "pnl": {}, "error": str(e)}, status=500)
+            finally:
+                conn.close()
+            return
+
         # Health check endpoint
         if path == "/healthz":
             self._send_html("OK")
@@ -199,6 +217,88 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                 self._send_json({"success": True, "message": f"Đã ghi nhận báo nhầm cho phiên {aid}"})
             except Exception as e:
                 logger.warning(f"Lỗi khi nhận báo nhầm: {e}")
+                self._send_json({"success": False, "error": str(e)}, status=400)
+            return
+
+        if path == "/api/kanban/move":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body)
+                item_id = int(data.get("item_id", 0))
+                stage = str(data.get("stage", ""))
+                from repository import update_kanban_stage
+                conn = get_db_connection(self.config.db_path)
+                try:
+                    ok = update_kanban_stage(conn, item_id, stage)
+                    self._send_json({"success": ok})
+                finally:
+                    conn.close()
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)}, status=400)
+            return
+
+        if path == "/api/kanban/add":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body)
+                from repository import create_kanban_item
+                conn = get_db_connection(self.config.db_path)
+                try:
+                    item = create_kanban_item(
+                        conn,
+                        title=data.get("title", "Lô bật lửa"),
+                        brand=data.get("brand", "unknown"),
+                        auction_id=data.get("auction_id", ""),
+                        stage=data.get("stage", "bidding"),
+                        buy_price_jpy=int(data.get("buy_price_jpy", 0)),
+                        buy_price_vnd=int(data.get("buy_price_vnd", 0)),
+                        shipping_cost_vnd=int(data.get("shipping_cost_vnd", 0)),
+                        repair_cost_vnd=int(data.get("repair_cost_vnd", 0)),
+                        sale_price_vnd=int(data.get("sale_price_vnd", 0)),
+                        image_url=data.get("image_url", ""),
+                        source_url=data.get("source_url", ""),
+                        notes=data.get("notes", ""),
+                    )
+                    self._send_json({"success": True, "item": item})
+                finally:
+                    conn.close()
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)}, status=400)
+            return
+
+        if path == "/api/kanban/update":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body)
+                item_id = int(data.get("item_id", 0))
+                from repository import update_kanban_item
+                conn = get_db_connection(self.config.db_path)
+                try:
+                    ok = update_kanban_item(conn, item_id, data)
+                    self._send_json({"success": ok})
+                finally:
+                    conn.close()
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)}, status=400)
+            return
+
+        if path == "/api/kanban/delete":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body)
+                item_id = int(data.get("item_id", 0))
+                from repository import delete_kanban_item
+                conn = get_db_connection(self.config.db_path)
+                try:
+                    ok = delete_kanban_item(conn, item_id)
+                    self._send_json({"success": ok})
+                finally:
+                    conn.close()
+            except Exception as e:
                 self._send_json({"success": False, "error": str(e)}, status=400)
             return
 

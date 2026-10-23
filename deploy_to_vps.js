@@ -27,6 +27,7 @@ async function createZip() {
     'parser.py',
     'pricing.py',
     'radar_service.py',
+    'ai_vision_service.py',
     'ebay_service.py',
     'dashboard_server.py',
     'repository.py',

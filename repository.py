@@ -875,3 +875,232 @@ def get_db_file_size_bytes(db_path: Path | str) -> int:
         return 0
 
 
+# ==========================================
+# KANBAN & P&L TRACKING REPOSITORY FUNCTIONS
+# ==========================================
+
+VALID_KANBAN_STAGES = ("bidding", "transit", "restoring", "selling", "sold")
+
+
+def create_kanban_item(
+    conn: sqlite3.Connection,
+    title: str,
+    brand: str = "unknown",
+    auction_id: str = "",
+    stage: str = "bidding",
+    buy_price_jpy: int = 0,
+    buy_price_vnd: int = 0,
+    shipping_cost_vnd: int = 0,
+    repair_cost_vnd: int = 0,
+    sale_price_vnd: int = 0,
+    image_url: str = "",
+    source_url: str = "",
+    notes: str = "",
+) -> dict[str, Any]:
+    """Tạo một thẻ hàng hóa mới trên luồng Kanban."""
+    stage_clean = stage.lower().strip()
+    if stage_clean not in VALID_KANBAN_STAGES:
+        stage_clean = "bidding"
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cur = conn.cursor()
+    with conn:
+        cur.execute(
+            """
+            INSERT INTO kanban_items (
+                auction_id, title, brand, stage,
+                buy_price_jpy, buy_price_vnd, shipping_cost_vnd,
+                repair_cost_vnd, sale_price_vnd, image_url,
+                source_url, notes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                auction_id,
+                title,
+                brand,
+                stage_clean,
+                buy_price_jpy,
+                buy_price_vnd,
+                shipping_cost_vnd,
+                repair_cost_vnd,
+                sale_price_vnd,
+                image_url,
+                source_url,
+                notes,
+                now_iso,
+                now_iso,
+            ),
+        )
+        item_id = cur.lastrowid
+
+    return {
+        "id": item_id,
+        "auction_id": auction_id,
+        "title": title,
+        "brand": brand,
+        "stage": stage_clean,
+        "buy_price_jpy": buy_price_jpy,
+        "buy_price_vnd": buy_price_vnd,
+        "shipping_cost_vnd": shipping_cost_vnd,
+        "repair_cost_vnd": repair_cost_vnd,
+        "sale_price_vnd": sale_price_vnd,
+        "image_url": image_url,
+        "source_url": source_url,
+        "notes": notes,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+
+
+def get_kanban_items(conn: sqlite3.Connection, stage: str | None = None) -> list[dict[str, Any]]:
+    """Lấy danh sách các thẻ Kanban, có thể lọc theo stage."""
+    cur = conn.cursor()
+    if stage and stage in VALID_KANBAN_STAGES:
+        cur.execute(
+            "SELECT * FROM kanban_items WHERE stage = ? ORDER BY id DESC;",
+            (stage,),
+        )
+    else:
+        cur.execute("SELECT * FROM kanban_items ORDER BY id DESC;")
+
+    rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+def update_kanban_stage(conn: sqlite3.Connection, item_id: int, new_stage: str) -> bool:
+    """Chuyển thẻ hàng hóa sang cột quy trình mới."""
+    stage_clean = new_stage.lower().strip()
+    if stage_clean not in VALID_KANBAN_STAGES:
+        return False
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE kanban_items SET stage = ?, updated_at = ? WHERE id = ?;",
+            (stage_clean, now_iso, item_id),
+        )
+        return cur.rowcount > 0
+
+
+def update_kanban_item(conn: sqlite3.Connection, item_id: int, data: dict[str, Any]) -> bool:
+    """Cập nhật chi phí, giá bán hoặc ghi chú của thẻ Kanban."""
+    allowed_fields = [
+        "title", "brand", "stage", "buy_price_jpy", "buy_price_vnd",
+        "shipping_cost_vnd", "repair_cost_vnd", "sale_price_vnd",
+        "notes", "image_url", "source_url"
+    ]
+    updates = []
+    params = []
+    for k, v in data.items():
+        if k in allowed_fields:
+            updates.append(f"{k} = ?")
+            params.append(v)
+
+    if not updates:
+        return False
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updates.append("updated_at = ?")
+    params.append(now_iso)
+    params.append(item_id)
+
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE kanban_items SET {', '.join(updates)} WHERE id = ?;",
+            tuple(params),
+        )
+        return cur.rowcount > 0
+
+
+def delete_kanban_item(conn: sqlite3.Connection, item_id: int) -> bool:
+    """Xóa một thẻ hàng hóa khỏi Kanban."""
+    with conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM kanban_items WHERE id = ?;", (item_id,))
+        return cur.rowcount > 0
+
+
+def get_kanban_pnl_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Tính toán toàn diện các chỉ số tài chính P&L từ dữ liệu Kanban."""
+    cur = conn.cursor()
+
+    # 1. Thống kê số lượng theo từng cột stage
+    cur.execute("SELECT stage, COUNT(*) as cnt FROM kanban_items GROUP BY stage;")
+    stage_counts = {s: 0 for s in VALID_KANBAN_STAGES}
+    for r in cur.fetchall():
+        stage_counts[r["stage"]] = r["cnt"]
+
+    # 2. Tổng vốn đầu tư (VND) cho các lô đã mua (transit, restoring, selling, sold)
+    cur.execute(
+        """
+        SELECT 
+            COALESCE(SUM(buy_price_vnd + shipping_cost_vnd + repair_cost_vnd), 0) as total_invested,
+            COALESCE(SUM(buy_price_vnd), 0) as total_purchase,
+            COALESCE(SUM(shipping_cost_vnd), 0) as total_shipping,
+            COALESCE(SUM(repair_cost_vnd), 0) as total_restoring
+        FROM kanban_items
+        WHERE stage != 'bidding';
+        """
+    )
+    inv_row = cur.fetchone()
+    total_invested = inv_row["total_invested"]
+    total_purchase = inv_row["total_purchase"]
+    total_shipping = inv_row["total_shipping"]
+    total_restoring = inv_row["total_restoring"]
+
+    # 3. Hàng đã bán (stage = 'sold') -> Lợi nhuận ròng thực tế
+    cur.execute(
+        """
+        SELECT 
+            COALESCE(SUM(sale_price_vnd), 0) as realized_revenue,
+            COALESCE(SUM(buy_price_vnd + shipping_cost_vnd + repair_cost_vnd), 0) as realized_cogs,
+            COUNT(*) as sold_count
+        FROM kanban_items
+        WHERE stage = 'sold';
+        """
+    )
+    sold_row = cur.fetchone()
+    realized_revenue = sold_row["realized_revenue"]
+    realized_cogs = sold_row["realized_cogs"]
+    sold_count = sold_row["sold_count"]
+    realized_net_profit = realized_revenue - realized_cogs
+    roi_pct = round((realized_net_profit / realized_cogs * 100), 1) if realized_cogs > 0 else 0.0
+
+    # 4. Hàng đang tồn kho (transit, restoring, selling)
+    cur.execute(
+        """
+        SELECT 
+            COALESCE(SUM(buy_price_vnd + shipping_cost_vnd + repair_cost_vnd), 0) as active_inventory_cost,
+            COALESCE(SUM(sale_price_vnd), 0) as projected_revenue,
+            COUNT(*) as active_inventory_count
+        FROM kanban_items
+        WHERE stage IN ('transit', 'restoring', 'selling');
+        """
+    )
+    stock_row = cur.fetchone()
+    active_inv_cost = stock_row["active_inventory_cost"]
+    projected_revenue = stock_row["projected_revenue"]
+    active_inv_count = stock_row["active_inventory_count"]
+    projected_profit = projected_revenue - active_inv_cost if projected_revenue > 0 else 0
+
+    return {
+        "stage_counts": stage_counts,
+        "total_invested": total_invested,
+        "total_purchase": total_purchase,
+        "total_shipping": total_shipping,
+        "total_restoring": total_restoring,
+        "realized_revenue": realized_revenue,
+        "realized_cogs": realized_cogs,
+        "realized_net_profit": realized_net_profit,
+        "roi_pct": roi_pct,
+        "sold_count": sold_count,
+        "active_inventory_cost": active_inv_cost,
+        "projected_revenue": projected_revenue,
+        "projected_profit": projected_profit,
+        "active_inventory_count": active_inv_count,
+    }
+
+
+

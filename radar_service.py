@@ -38,7 +38,7 @@ _LIGHTER_INDICATOR_RE = re.compile(
 
 # Regex nhận diện dấu hiệu bán theo lô / nhiều cây
 _LOT_KEYWORDS_RE = re.compile(
-    r"(まとめ(?:売り)?|大量|セット|アソート|ジャンク|\d+\s*(?:点|本|個|台)|詰め合わせ|詰合せ)",
+    r"(まとめ(?:売り)?|大量|セット|アソート|ジャンク|\d+\s*(?:点|本|個|台)|詰め合わせ|詰合せ|遺品整理|遺品|蔵出し|蔵出|引き取り品|引取品|実家|ガラクタ|当時物|旧家)",
     re.IGNORECASE,
 )
 
@@ -91,6 +91,14 @@ LOT_SEARCH_QUERIES = [
     "ライター 複数",
     "ライター 着火未確認 まとめ",
     "ライター 現状品 まとめて",
+    # Săn hàng Di vật dọn nhà / Dọn kho cổ gia truyền (Hidden Gems)
+    "遺品整理 ライター",
+    "蔵出し ライター",
+    "引き取り品 ライター",
+    "実家 片付け ライター",
+    "ガラクタ ライター まとめて",
+    "当時物 ライター セット",
+    "喫煙具 大量 放出",
 ]
 
 
@@ -351,6 +359,10 @@ def classify_lighter_lot_type(title: str) -> tuple[str, str, str]:
         return "thapcam", "[LOT THẬP CẨM]", "📦"
 
     t = title.lower()
+    is_gem = bool(re.search(r"(遺品整理|遺品|蔵出し|蔵出|引き取り品|引取品|実家|片付け|ガラクタ|当時物|旧家|初だし|初出|処分品)", t, re.IGNORECASE))
+    if is_gem:
+        return "gem", "[💎 DI VẬT DỌN KHO]", "💎"
+
     is_zippo = bool(re.search(r"(zippo|ジッポ|ジッポー)", t, re.IGNORECASE))
     is_oil = bool(re.search(r"(オイル|oil|オイルライター|油|xăng|petrol)", t, re.IGNORECASE))
     is_gas = bool(re.search(r"(ガス|gas|フリント|flint|着火石|発火石|ガスライター|石)", t, re.IGNORECASE))
@@ -453,6 +465,21 @@ BRAND_RADAR_CONFIGS = {
         "is_lot_only": True,
         "match_re": re.compile(r"(dunhill|ダンヒル)", re.IGNORECASE),
     },
+    "gem": {
+        "title": "💎 DI VẬT DỌN KHO (HIDDEN GEMS)",
+        "queries": [
+            "遺品整理 ライター",
+            "蔵出し ライター",
+            "引き取り品 ライター",
+            "実家 片付け ライター",
+            "ガラクタ ライター まとめて",
+            "当時物 ライター セット",
+            "喫煙具 大量 放出",
+            "旧家 蔵出 ライター",
+        ],
+        "is_lot_only": True,
+        "match_re": re.compile(r"(遺品整理|遺品|蔵出し|蔵出|引き取り品|引取品|実家|片付け|ガラクタ|当時物|旧家|初だし|初出|処分品)", re.IGNORECASE),
+    },
 }
 
 
@@ -473,6 +500,8 @@ async def scan_today_lighter_lots(queries: list[str] | None = None, mode: str = 
         mode_clean = "dau"
     elif raw_mode in ("thapcam", "thap_cam", "mix", "honhop", "hon_hop"):
         mode_clean = "thapcam"
+    elif raw_mode in ("gem", "gems", "divat", "di_vat", "kho", "don_kho", "ve_chai"):
+        mode_clean = "gem"
     else:
         mode_clean = raw_mode
 

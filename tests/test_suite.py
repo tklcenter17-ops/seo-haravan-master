@@ -3238,6 +3238,158 @@ async def test_t41_mercari_disabled_and_yahoo_radar_active():
     assert len(LOT_SEARCH_QUERIES) >= 20
 
 
+def test_t42_hidden_gems_radar_mode():
+    """T42: Kiểm thử bộ từ khóa Di vật dọn kho (Hidden Gems) và phân loại tự động."""
+    from radar_service import BRAND_RADAR_CONFIGS, LOT_SEARCH_QUERIES, classify_lighter_lot_type, is_lot_title
+    from handlers.radar_handlers import _resolve_brand_mode, _get_radar_page_keyboard
+
+    # 1. Cấu hình mode 'gem' trong BRAND_RADAR_CONFIGS
+    assert "gem" in BRAND_RADAR_CONFIGS
+    assert "DI VẬT" in BRAND_RADAR_CONFIGS["gem"]["title"]
+    assert len(BRAND_RADAR_CONFIGS["gem"]["queries"]) >= 5
+
+    # 2. Phân giải tham số lệnh /radar
+    for arg in ["gem", "gems", "divat", "di_vat", "kho"]:
+        mode, title = _resolve_brand_mode([arg])
+        assert mode == "gem"
+        assert "DI VẬT" in title
+
+    # 3. Phân loại tiêu đề chứa từ khóa di vật / dọn kho
+    code, tag, icon = classify_lighter_lot_type("【遺品整理】古いライター 10点 まとめて 当時物")
+    assert code == "gem"
+    assert "DI VẬT DỌN KHO" in tag
+    assert icon == "💎"
+
+    code2, tag2, icon2 = classify_lighter_lot_type("蔵出し 古いガスライター セット")
+    assert code2 == "gem"
+    assert icon2 == "💎"
+
+    # 4. Kiểm tra nút bấm trên bàn phím phân trang
+    kb = _get_radar_page_keyboard(1, 2, 8, is_auto_on=True, current_mode="gem")
+    btn_datas = [b.callback_data for row in kb.inline_keyboard for b in row]
+    assert "radar_brand:gem" in btn_datas
+
+    # 5. Kiểm tra nhận diện tiêu đề lô hợp lệ
+    assert is_lot_title("遺品整理 ライター 大量") is True
+    assert is_lot_title("蔵出し ライター セット") is True
+
+
+def test_t43_ai_vision_lighter_inspection():
+    """T43: Kiểm thử AI Vision nhận diện bật lửa giá trị cao (Dupont, Dunhill, Zippo cổ) qua ảnh."""
+    from ai_vision_service import parse_gemini_vision_response, inspect_lighter_lot_image
+    from handlers.radar_handlers import ai_inspect_command
+    import asyncio
+
+    # 1. Kiểm thử parse kết quả phát hiện đồ quý (Gem Detected)
+    gem_text = """
+    - ĐÁNH GIÁ: CỰC HOT / ĐỒ HIẾM
+    - THƯƠNG HIỆU PHÁT HIỆN: Dupont, Dunhill, Zippo
+    - ĐIỂM SÁNG: Phát hiện 1 cây Dupont Ligne 1 mạ vàng và 1 Dunhill Rollagas sọc ngang.
+    - ƯỚC TÍNH: ~15 cây
+    """
+    res1 = parse_gemini_vision_response(gem_text)
+    assert res1["gem_detected"] is True
+    assert res1["rating"] == "CỰC HOT"
+    assert "Dupont" in res1["detected_brands"]
+    assert "Dunhill" in res1["detected_brands"]
+    assert "Zippo" in res1["detected_brands"]
+    assert "💎" in res1["summary_short"]
+    assert "Dupont" in res1["summary_short"]
+
+    # 2. Kiểm thử parse kết quả lô bình dân / ve chai thông thường
+    junk_text = """
+    - ĐÁNH GIÁ: LÔ BÌNH DÂN
+    - THƯƠNG HIỆU PHÁT HIỆN: Chưa thấy hãng danh tiếng
+    - ĐIỂM SÁNG: Toàn bộ là bật lửa gas nhựa dùng 1 lần (Tokai, Cricket).
+    - ƯỚC TÍNH: ~20 cây
+    """
+    res2 = parse_gemini_vision_response(junk_text)
+    assert res2["gem_detected"] is False
+    assert res2["rating"] == "BÌNH DÂN"
+    assert "🔍" in res2["summary_short"]
+
+    # 3. Kiểm thử an toàn khi chuỗi rỗng / null
+    res_empty = parse_gemini_vision_response("")
+    assert res_empty["gem_detected"] is False
+    assert res_empty["rating"] == "BÌNH DÂN"
+
+    # 4. Kiểm thử hàm inspect_lighter_lot_image xử lý an toàn khi thiếu ảnh / thiếu key
+    res_no_img = asyncio.run(inspect_lighter_lot_image(b""))
+    assert res_no_img["success"] is False
+    assert "rỗng" in res_no_img["error"]
+
+    res_no_key = asyncio.run(inspect_lighter_lot_image(b"fake_bytes", api_key=""))
+    # Khi không có key được truyền vào và .env không có key (hoặc có key thì kiểm tra trả về dict hợp lệ)
+    assert isinstance(res_no_key, dict)
+
+    # 5. Kiểm tra handler ai_inspect_command tồn tại và có thể gọi
+    assert callable(ai_inspect_command)
+
+
+def test_t44_kanban_and_pnl_tracker(test_db):
+    """T44: Kiểm thử luồng Kanban đường đi hàng hóa và tính toán báo cáo P&L lợi nhuận ròng."""
+    from repository import (
+        create_kanban_item,
+        get_kanban_items,
+        update_kanban_stage,
+        update_kanban_item,
+        delete_kanban_item,
+        get_kanban_pnl_summary,
+    )
+
+    # 1. Tạo item mới ở cột 'bidding' (Đang Canh Đấu)
+    item = create_kanban_item(
+        test_db,
+        title="Lô 5 cây Dunhill Rollagas ve chai",
+        brand="dunhill",
+        auction_id="y10889922",
+        stage="bidding",
+        buy_price_jpy=12000,
+        buy_price_vnd=2000000,
+    )
+    assert item["id"] > 0
+    assert item["stage"] == "bidding"
+
+    # 2. Chuyển sang cột 'transit' (Đã Thắng Bid / Đang Vận Chuyển Về)
+    ok_move1 = update_kanban_stage(test_db, item["id"], "transit")
+    assert ok_move1 is True
+
+    # 3. Cập nhật chi phí ship khi hàng về tới kho VN
+    ok_up1 = update_kanban_item(test_db, item["id"], {"shipping_cost_vnd": 250000})
+    assert ok_up1 is True
+
+    # 4. Chuyển sang 'restoring' (Đang Spa / Thay đá tim / Bơm gas)
+    update_kanban_stage(test_db, item["id"], "restoring")
+    update_kanban_item(test_db, item["id"], {"repair_cost_vnd": 150000})
+
+    # 5. Chuyển sang 'selling' (Đã Lên Kệ) với giá chào bán
+    update_kanban_stage(test_db, item["id"], "selling")
+    update_kanban_item(test_db, item["id"], {"sale_price_vnd": 3800000})
+
+    # Kiểm tra P&L khi đang tồn kho (chưa chốt bán)
+    pnl_mid = get_kanban_pnl_summary(test_db)
+    assert pnl_mid["active_inventory_count"] == 1
+    assert pnl_mid["active_inventory_cost"] == 2000000 + 250000 + 150000  # 2.400.000 đ
+    assert pnl_mid["projected_profit"] == 3800000 - 2400000  # 1.400.000 đ
+    assert pnl_mid["realized_net_profit"] == 0
+
+    # 6. Chuyển sang 'sold' (Đã Bán Cho Khách / Chốt Lời Thực Tế)
+    update_kanban_stage(test_db, item["id"], "sold")
+    pnl_final = get_kanban_pnl_summary(test_db)
+    assert pnl_final["sold_count"] == 1
+    assert pnl_final["realized_revenue"] == 3800000
+    assert pnl_final["realized_cogs"] == 2400000
+    assert pnl_final["realized_net_profit"] == 1400000
+    assert pnl_final["roi_pct"] == round(1400000 / 2400000 * 100, 1)  # 58.3%
+
+    # 7. Xóa item
+    assert delete_kanban_item(test_db, item["id"]) is True
+    assert len(get_kanban_items(test_db)) == 0
+
+
+
+
+
 
 
 

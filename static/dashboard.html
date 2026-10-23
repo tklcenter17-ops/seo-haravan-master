@@ -647,6 +647,167 @@
       margin-bottom: 12px;
       opacity: 0.5;
     }
+
+    /* KANBAN & P&L STYLES */
+    .pnl-hero {
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(18, 24, 36, 0.8) 100%);
+      border: 1px solid var(--gold-primary);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .pnl-hero-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .pnl-hero-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold-light);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pnl-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .pnl-metric-item {
+      background: rgba(10, 13, 20, 0.6);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+    .pnl-metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .pnl-metric-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .pnl-metric-val.profit {
+      color: var(--accent-green);
+    }
+    .pnl-metric-val.gold {
+      color: var(--gold-light);
+    }
+
+    .kanban-board {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 14px;
+      scrollbar-width: thin;
+    }
+    .kanban-col {
+      flex: 0 0 280px;
+      background: rgba(18, 24, 36, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 380px;
+    }
+    .kanban-col-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .kanban-col-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold-light);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kanban-badge {
+      font-size: 11px;
+      background: #192336;
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .k-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: var(--transition);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .k-card:hover {
+      border-color: rgba(212, 175, 55, 0.4);
+      background: var(--bg-card-hover);
+    }
+    .k-card-title {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text-main);
+    }
+    .k-card-cost {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: rgba(10, 13, 20, 0.5);
+      padding: 6px;
+      border-radius: 4px;
+    }
+    .k-card-cost-row {
+      display: flex;
+      justify-content: space-between;
+    }
+    .k-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+    .k-btn {
+      flex: 1;
+      padding: 5px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-subtle);
+      background: #1a2233;
+      color: var(--text-main);
+      text-align: center;
+      transition: var(--transition);
+    }
+    .k-btn:hover {
+      background: var(--gold-primary);
+      color: #000;
+    }
+    .k-btn.next {
+      background: rgba(46, 204, 113, 0.15);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+    .k-btn.next:hover {
+      background: var(--accent-green);
+      color: #000;
+    }
   </style>
 </head>
 <body>
@@ -717,6 +878,83 @@
     </div>
   </section>
 
+  <!-- TAB KANBAN & P&L PIPELINE -->
+  <section class="container tab-pane" id="tabKanban">
+    <!-- P&L HERO SUMMARY -->
+    <div class="pnl-hero" id="pnlHeroBar">
+      <div class="pnl-hero-header">
+        <div class="pnl-hero-title">📈 BÁO CÁO P&L & LỢI NHUẬN RÒNG</div>
+        <button class="brand-btn active" style="font-size: 11px; padding: 3px 10px;" onclick="promptAddKanban()">+ Thêm Hàng</button>
+      </div>
+      <div class="pnl-metrics-grid">
+        <div class="pnl-metric-item">
+          <div class="pnl-metric-label">Lãi Ròng Đã Chốt</div>
+          <div class="pnl-metric-val profit" id="pnlNetProfit">0 đ</div>
+        </div>
+        <div class="pnl-metric-item">
+          <div class="pnl-metric-label">Tỷ Suất ROI</div>
+          <div class="pnl-metric-val profit" id="pnlRoiPct">0%</div>
+        </div>
+        <div class="pnl-metric-item">
+          <div class="pnl-metric-label">Vốn Đang Lưu Động</div>
+          <div class="pnl-metric-val gold" id="pnlActiveCapital">0 đ</div>
+        </div>
+        <div class="pnl-metric-item">
+          <div class="pnl-metric-label">Đã Giao / Bán</div>
+          <div class="pnl-metric-val" id="pnlSoldCount">0 cây</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KANBAN COLUMNS -->
+    <div class="kanban-board" id="kanbanBoard">
+      <!-- 1. BIDDING -->
+      <div class="kanban-col" data-stage="bidding">
+        <div class="kanban-col-head">
+          <div class="kanban-col-title">🎯 Đang Bid / Canh</div>
+          <span class="kanban-badge" id="kbadge-bidding">0</span>
+        </div>
+        <div class="kanban-cards" id="kcards-bidding" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <!-- 2. TRANSIT -->
+      <div class="kanban-col" data-stage="transit">
+        <div class="kanban-col-head">
+          <div class="kanban-col-title">✈️ Đã Thắng / Đang Về</div>
+          <span class="kanban-badge" id="kbadge-transit">0</span>
+        </div>
+        <div class="kanban-cards" id="kcards-transit" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <!-- 3. RESTORING -->
+      <div class="kanban-col" data-stage="restoring">
+        <div class="kanban-col-head">
+          <div class="kanban-col-title">🛠️ Spa / Dọn Bật Lửa</div>
+          <span class="kanban-badge" id="kbadge-restoring">0</span>
+        </div>
+        <div class="kanban-cards" id="kcards-restoring" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <!-- 4. SELLING -->
+      <div class="kanban-col" data-stage="selling">
+        <div class="kanban-col-head">
+          <div class="kanban-col-title">🏷️ Đang Bán / Lên Kệ</div>
+          <span class="kanban-badge" id="kbadge-selling">0</span>
+        </div>
+        <div class="kanban-cards" id="kcards-selling" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <!-- 5. SOLD -->
+      <div class="kanban-col" data-stage="sold">
+        <div class="kanban-col-head">
+          <div class="kanban-col-title">💰 Đã Bán / Chốt Lời</div>
+          <span class="kanban-badge" id="kbadge-sold">0</span>
+        </div>
+        <div class="kanban-cards" id="kcards-sold" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- TAB 3: RADAR CANH PHIÊN LIVE -->
   <section class="container tab-pane" id="tabRadar">
     <div style="margin-bottom: 12px;">
@@ -780,6 +1018,10 @@
     <button class="nav-item active" data-tab="tabVault">
       <span class="nav-icon">📦</span>
       <span>Kho Quẹt</span>
+    </button>
+    <button class="nav-item" data-tab="tabKanban">
+      <span class="nav-icon">📋</span>
+      <span>Kanban & P&L</span>
     </button>
     <button class="nav-item" data-tab="tabStats">
       <span class="nav-icon">📊</span>
@@ -1029,7 +1271,152 @@
       });
     });
 
+    // ==========================================
+    // KANBAN & P&L JAVASCRIPT LOGIC
+    // ==========================================
+    let allKanbanItems = [];
+
+    async function loadKanban() {
+      try {
+        const res = await fetch('/api/kanban');
+        if (!res.ok) return;
+        const data = await res.json();
+        allKanbanItems = data.items || [];
+        renderKanban(allKanbanItems, data.pnl || {});
+      } catch (err) {
+        console.error('Lỗi khi tải dữ liệu Kanban:', err);
+      }
+    }
+
+    function renderKanban(items, pnl) {
+      // 1. Render P&L Metrics
+      if (pnl) {
+        const net = pnl.realized_net_profit || 0;
+        document.getElementById('pnlNetProfit').innerText = (net >= 0 ? '+' : '') + Number(net).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('pnlRoiPct').innerText = (pnl.roi_pct || 0) + '%';
+        document.getElementById('pnlActiveCapital').innerText = Number(pnl.active_inventory_cost || 0).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('pnlSoldCount').innerText = (pnl.sold_count || 0) + ' cây';
+      }
+
+      // 2. Render Cards vào từng cột
+      const stages = ['bidding', 'transit', 'restoring', 'selling', 'sold'];
+      stages.forEach(st => {
+        const colContainer = document.getElementById(`kcards-${st}`);
+        const badge = document.getElementById(`kbadge-${st}`);
+        const stItems = items.filter(it => it.stage === st);
+        if (badge) badge.innerText = stItems.length;
+
+        if (!colContainer) return;
+        if (stItems.length === 0) {
+          colContainer.innerHTML = '<div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 20px 0;">Trống</div>';
+          return;
+        }
+
+        colContainer.innerHTML = stItems.map(it => {
+          const totalCost = (it.buy_price_vnd || 0) + (it.shipping_cost_vnd || 0) + (it.repair_cost_vnd || 0);
+          const profit = (it.sale_price_vnd || 0) - totalCost;
+
+          let nextBtnHtml = '';
+          if (st === 'bidding') nextBtnHtml = `<button class="k-btn next" onclick="moveKanbanStage(${it.id}, 'transit')">🏆 Thắng Bid</button>`;
+          else if (st === 'transit') nextBtnHtml = `<button class="k-btn next" onclick="moveKanbanStage(${it.id}, 'restoring')">🛠️ Spa / Dọn</button>`;
+          else if (st === 'restoring') nextBtnHtml = `<button class="k-btn next" onclick="moveKanbanStage(${it.id}, 'selling')">🏷️ Lên Kệ</button>`;
+          else if (st === 'selling') nextBtnHtml = `<button class="k-btn next" onclick="moveKanbanStage(${it.id}, 'sold')">💰 Đã Bán</button>`;
+
+          return `
+            <div class="k-card">
+              <div class="k-card-title">${it.title}</div>
+              <div class="k-card-cost">
+                <div class="k-card-cost-row"><span>Giá mua:</span><span>${(it.buy_price_vnd || 0).toLocaleString('vi-VN')} đ (${it.buy_price_jpy || 0} Y)</span></div>
+                ${it.shipping_cost_vnd ? `<div class="k-card-cost-row"><span>Ship:</span><span>${it.shipping_cost_vnd.toLocaleString('vi-VN')} đ</span></div>` : ''}
+                ${it.repair_cost_vnd ? `<div class="k-card-cost-row"><span>Spa/Phụ kiện:</span><span>${it.repair_cost_vnd.toLocaleString('vi-VN')} đ</span></div>` : ''}
+                ${it.sale_price_vnd ? `<div class="k-card-cost-row" style="color: var(--gold-light); font-weight: 600;"><span>Giá bán:</span><span>${it.sale_price_vnd.toLocaleString('vi-VN')} đ</span></div>` : ''}
+                ${st === 'sold' ? `<div class="k-card-cost-row" style="color: var(--accent-green); font-weight: 700;"><span>Lãi:</span><span>+${profit.toLocaleString('vi-VN')} đ</span></div>` : ''}
+              </div>
+              <div class="k-card-actions">
+                <button class="k-btn" onclick="promptEditKanban(${it.id})">✏️ Sửa phí</button>
+                ${nextBtnHtml}
+                <button class="k-btn" style="color: var(--accent-red); flex: 0 0 28px;" onclick="deleteKanban(${it.id})">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      });
+    }
+
+    async function moveKanbanStage(id, stage) {
+      try {
+        const res = await fetch('/api/kanban/move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_id: id, stage: stage })
+        });
+        if (res.ok) await loadKanban();
+      } catch (e) { alert('Lỗi chuyển trạng thái.'); }
+    }
+
+    async function promptAddKanban() {
+      const title = prompt('Nhập tên lô hoặc mã Yahoo (ví dụ: Lô 10 cây Dupont/Dunhill):');
+      if (!title) return;
+      const buyJpy = parseInt(prompt('Giá mua JPY (ví dụ: 15000):') || '0', 10);
+      const buyVnd = Math.round(buyJpy * currentRate);
+
+      try {
+        const res = await fetch('/api/kanban/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title,
+            buy_price_jpy: buyJpy,
+            buy_price_vnd: buyVnd,
+            stage: 'bidding'
+          })
+        });
+        if (res.ok) await loadKanban();
+      } catch (e) { alert('Lỗi thêm hàng mới.'); }
+    }
+
+    async function promptEditKanban(id) {
+      const it = allKanbanItems.find(x => x.id === id);
+      if (!it) return;
+
+      const ship = prompt(`Chi phí Ship về VN (hiện tại: ${it.shipping_cost_vnd || 0} đ):`, it.shipping_cost_vnd || 0);
+      if (ship === null) return;
+
+      const repair = prompt(`Chi phí Spa / đá tim / phụ kiện (hiện tại: ${it.repair_cost_vnd || 0} đ):`, it.repair_cost_vnd || 0);
+      if (repair === null) return;
+
+      const sale = prompt(`Giá bán ra VND (hiện tại: ${it.sale_price_vnd || 0} đ):`, it.sale_price_vnd || 0);
+      if (sale === null) return;
+
+      try {
+        const res = await fetch('/api/kanban/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            item_id: id,
+            shipping_cost_vnd: parseInt(ship, 10) || 0,
+            repair_cost_vnd: parseInt(repair, 10) || 0,
+            sale_price_vnd: parseInt(sale, 10) || 0
+          })
+        });
+        if (res.ok) await loadKanban();
+      } catch (e) { alert('Lỗi cập nhật chi phí.'); }
+    }
+
+    async function deleteKanban(id) {
+      if (!confirm('Xóa thẻ hàng này khỏi Kanban?')) return;
+      try {
+        const res = await fetch('/api/kanban/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_id: id })
+        });
+        if (res.ok) await loadKanban();
+      } catch (e) { alert('Lỗi xóa.'); }
+    }
+
     initDashboard();
+    loadKanban();
   </script>
 </body>
 </html>
