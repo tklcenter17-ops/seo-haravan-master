@@ -1324,7 +1324,7 @@
 
           return `
             <div class="k-card">
-              <div class="k-card-title">${it.title}</div>
+              <div class="k-card-title">${escapeHtml(it.title)}</div>
               <div class="k-card-cost">
                 <div class="k-card-cost-row"><span>Giá mua:</span><span>${(it.buy_price_vnd || 0).toLocaleString('vi-VN')} đ (${it.buy_price_jpy || 0} Y)</span></div>
                 ${it.shipping_cost_vnd ? `<div class="k-card-cost-row"><span>Ship:</span><span>${it.shipping_cost_vnd.toLocaleString('vi-VN')} đ</span></div>` : ''}
@@ -1343,7 +1343,29 @@
       });
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function tgAlert(msg) {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showAlert) {
+        window.Telegram.WebApp.showAlert(msg);
+      } else {
+        alert(msg);
+      }
+    }
+
+    let isKanbanBusy = false;
+
     async function moveKanbanStage(id, stage) {
+      if (isKanbanBusy) return;
+      isKanbanBusy = true;
       try {
         const res = await fetch('/api/kanban/move', {
           method: 'POST',
@@ -1351,31 +1373,36 @@
           body: JSON.stringify({ item_id: id, stage: stage })
         });
         if (res.ok) await loadKanban();
-      } catch (e) { alert('Lỗi chuyển trạng thái.'); }
+      } catch (e) { tgAlert('Lỗi chuyển trạng thái.'); }
+      finally { isKanbanBusy = false; }
     }
 
     async function promptAddKanban() {
+      if (isKanbanBusy) return;
       const title = prompt('Nhập tên lô hoặc mã Yahoo (ví dụ: Lô 10 cây Dupont/Dunhill):');
       if (!title) return;
       const buyJpy = parseInt(prompt('Giá mua JPY (ví dụ: 15000):') || '0', 10);
       const buyVnd = Math.round(buyJpy * currentRate);
 
+      isKanbanBusy = true;
       try {
         const res = await fetch('/api/kanban/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: title,
+            title: title.trim(),
             buy_price_jpy: buyJpy,
             buy_price_vnd: buyVnd,
             stage: 'bidding'
           })
         });
         if (res.ok) await loadKanban();
-      } catch (e) { alert('Lỗi thêm hàng mới.'); }
+      } catch (e) { tgAlert('Lỗi thêm hàng mới.'); }
+      finally { isKanbanBusy = false; }
     }
 
     async function promptEditKanban(id) {
+      if (isKanbanBusy) return;
       const it = allKanbanItems.find(x => x.id === id);
       if (!it) return;
 
@@ -1388,6 +1415,7 @@
       const sale = prompt(`Giá bán ra VND (hiện tại: ${it.sale_price_vnd || 0} đ):`, it.sale_price_vnd || 0);
       if (sale === null) return;
 
+      isKanbanBusy = true;
       try {
         const res = await fetch('/api/kanban/update', {
           method: 'POST',
@@ -1400,11 +1428,14 @@
           })
         });
         if (res.ok) await loadKanban();
-      } catch (e) { alert('Lỗi cập nhật chi phí.'); }
+      } catch (e) { tgAlert('Lỗi cập nhật chi phí.'); }
+      finally { isKanbanBusy = false; }
     }
 
     async function deleteKanban(id) {
+      if (isKanbanBusy) return;
       if (!confirm('Xóa thẻ hàng này khỏi Kanban?')) return;
+      isKanbanBusy = true;
       try {
         const res = await fetch('/api/kanban/delete', {
           method: 'POST',
@@ -1412,7 +1443,8 @@
           body: JSON.stringify({ item_id: id })
         });
         if (res.ok) await loadKanban();
-      } catch (e) { alert('Lỗi xóa.'); }
+      } catch (e) { tgAlert('Lỗi xóa.'); }
+      finally { isKanbanBusy = false; }
     }
 
     initDashboard();
