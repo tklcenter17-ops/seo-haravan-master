@@ -1,8 +1,12 @@
 #!/bin/sh
-# Tự động đồng bộ Script.html / Style.html -> vercel_frontend/ mỗi lần commit.
+# Tự động đồng bộ Script.html / Style.html -> vercel_frontend/ khi commit.
+# CHỈ chạy khi chính các file nguồn này nằm trong commit (không kéo thay đổi chưa duyệt vào commit không liên quan).
 root=$(git rev-parse --show-toplevel) || exit 0
+staged=$(git diff --cached --name-only)
+echo "$staged" | grep -Eq '^app_script_admin/(Script|Style)\.html$' || exit 0
 cd "$root/app_script_admin" || exit 0
 command -v node >/dev/null 2>&1 || { echo "[pre-commit] Không có node, bỏ qua đồng bộ Vercel"; exit 0; }
 node sync-frontend.js >/dev/null || { echo "[pre-commit] Lỗi sync-frontend.js, hủy commit"; exit 1; }
-git add vercel_frontend/script.js vercel_frontend/style.css
+echo "$staged" | grep -q '^app_script_admin/Script\.html$' && git add vercel_frontend/script.js
+echo "$staged" | grep -q '^app_script_admin/Style\.html$'  && git add vercel_frontend/style.css
 exit 0
