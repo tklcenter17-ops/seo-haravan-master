@@ -644,6 +644,7 @@ function switchPage(page, navEl) {
     dashboard : 'Dashboard',
     products  : 'Quản lý sản phẩm',
     daily     : 'Đơn chốt theo ngày',
+    report    : 'Báo cáo tổng quan',
     viettel_orders: 'Tạo đơn Viettel Post',
     liquidation: 'Đơn chốt THANH LÝ',
     search    : 'Tra cứu MÃ SP',
@@ -659,6 +660,7 @@ function switchPage(page, navEl) {
     loadShopPulseData();
   }
   if (page === 'products' ) loadProducts();
+  if (page === 'report'   ) openReportFrame_();
   if (page === 'liquidation') loadLiquidationRows();
   if (page === 'stats'    ) loadAdvancedStats();
   if (page === 'system_audit') loadSystemAudit();
@@ -685,6 +687,27 @@ function switchPage(page, navEl) {
     document.getElementById('sidebar').classList.remove('mobile-open');
   }
   return false;
+}
+
+// Trang "Báo cáo tổng quan": nhúng /report.html (cùng domain) vào khung bên phải, sidebar giữ nguyên.
+// Chỉ tải lần đầu khi bấm vào mục; các lần sau chỉ làm mới số liệu.
+let reportFrameBound_ = false;
+function openReportFrame_() {
+  const frame = document.getElementById('report-frame');
+  if (!frame) return;
+  if (!reportFrameBound_) {
+    reportFrameBound_ = true;
+    window.addEventListener('message', (e) => {
+      if (e.origin !== window.location.origin || !e.data || e.data.type !== 'report-height') return;
+      const f = document.getElementById('report-frame');
+      if (f && e.data.h > 200) f.style.height = e.data.h + 'px';
+    });
+  }
+  if (!frame.getAttribute('src')) {
+    frame.setAttribute('src', frame.dataset.src);
+    return;
+  }
+  try { if (frame.contentWindow && frame.contentWindow.__reload) frame.contentWindow.__reload(); } catch (e) { /* khung chưa sẵn sàng */ }
 }
 
 function toggleSidebar() {

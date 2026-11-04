@@ -9,12 +9,12 @@
 :root{
   --bg:#f4f6fb;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;
   --brand:#4f46e5;--brand-soft:#eef2ff;--good:#059669;--good-soft:#ecfdf5;--bad:#dc2626;--bad-soft:#fef2f2;--warn:#d97706;--warn-soft:#fffbeb;
-  --c1:#4f46e5;--c2:#10b981;--c3:#f59e0b;--c4:#ec4899;--c5:#06b6d4;
+  --c1:#4f46e5;--c2:#10b981;--c3:#f59e0b;--c4:#ec4899;--c5:#06b6d4;--solid:#ffffff;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){--bg:#0b1020;--card:#141b2f;--ink:#e6eaf5;--muted:#93a0bb;--line:#26304a;--brand:#818cf8;--brand-soft:#1d2447;--good:#34d399;--good-soft:#0f2a24;--bad:#f87171;--bad-soft:#2d1519;--warn:#fbbf24;--warn-soft:#2c2410}
+  :root:not([data-theme="light"]){--bg:#0b1020;--card:#141b2f;--ink:#e6eaf5;--muted:#93a0bb;--line:#26304a;--brand:#818cf8;--brand-soft:#1d2447;--good:#34d399;--good-soft:#0f2a24;--bad:#f87171;--bad-soft:#2d1519;--warn:#fbbf24;--warn-soft:#2c2410;--solid:#141b2f}
 }
-:root[data-theme="dark"]{--bg:#0b1020;--card:#141b2f;--ink:#e6eaf5;--muted:#93a0bb;--line:#26304a;--brand:#818cf8;--brand-soft:#1d2447;--good:#34d399;--good-soft:#0f2a24;--bad:#f87171;--bad-soft:#2d1519;--warn:#fbbf24;--warn-soft:#2c2410}
+:root[data-theme="dark"]{--bg:#0b1020;--card:#141b2f;--ink:#e6eaf5;--muted:#93a0bb;--line:#26304a;--brand:#818cf8;--brand-soft:#1d2447;--good:#34d399;--good-soft:#0f2a24;--bad:#f87171;--bad-soft:#2d1519;--warn:#fbbf24;--warn-soft:#2c2410;--solid:#141b2f}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -64,6 +64,20 @@ th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;
 .gate-err{color:var(--bad);font-size:.88rem}
 footer{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center}
 .scroll{overflow-x:auto}
+.row3.wide{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.tall{max-height:460px;overflow:auto}
+.tall thead th{position:sticky;top:0;background:var(--solid,var(--card));z-index:1}
+tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:0}
+td.neg{color:var(--bad)}
+td.up{color:var(--good)}td.down{color:var(--bad)}
+html.embed body{background:transparent}
+html.embed .wrap{max-width:none;padding:0 0 32px}
+html.embed .periods{position:static}
+html.embed #btn-theme,html.embed #btn-print{display:none}
+html.embed header.top h1{display:none}
+html.embed header.top{margin-bottom:6px}
+html:root.embed-dark{--bg:transparent;--card:rgba(16,12,34,.55);--solid:#120e26;--ink:#f8fafc;--muted:#94a3b8;--line:rgba(255,255,255,.09);--brand:#8b5cf6;--brand-soft:rgba(139,92,246,.16);--good:#34d399;--good-soft:rgba(52,211,153,.13);--bad:#f87171;--bad-soft:rgba(248,113,113,.13);--warn:#fbbf24;--warn-soft:rgba(251,191,36,.13)}
+html:root.embed-light{--bg:transparent;--card:#ffffff;--solid:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--brand:#4f46e5;--brand-soft:#eef2ff;--good:#059669;--good-soft:#ecfdf5;--bad:#dc2626;--bad-soft:#fef2f2;--warn:#d97706;--warn-soft:#fffbeb}
 @media print{
   body{background:#fff}.periods,.tools{display:none}.card{break-inside:avoid;border-color:#ccc}
   :root{--bg:#fff;--card:#fff;--ink:#000;--muted:#555;--line:#ddd}
@@ -119,6 +133,22 @@ footer{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center}
     </div>
   </section>
 
+  <section class="grid row3 wide" style="margin-top:14px">
+    <div class="card"><h2>Theo nguồn đơn <small>trong kỳ</small></h2><div class="scroll"><table id="tbl-src"></table></div></div>
+    <div class="card"><h2>Theo mức giá bán <small>trong kỳ</small></h2><div class="scroll"><table id="tbl-band"></table></div></div>
+    <div class="card"><h2>Đơn lãi mỏng / lỗ <small>trong kỳ</small></h2><div class="q" id="lossbox"></div></div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Chi tiết theo ngày <small id="t-detail"></small><button class="btn" id="btn-csv" type="button" style="float:right;padding:4px 10px;font-size:.8rem">Tải CSV</button></h2>
+    <div class="scroll tall"><table id="tbl-day"></table></div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Tổng hợp theo tháng <small>toàn bộ lịch sử</small></h2>
+    <div class="scroll"><table id="tbl-month"></table></div>
+  </section>
+
   <section class="card" style="margin-top:14px">
     <h2>Độ tin cậy của số liệu <small>nên sửa để báo cáo chính xác hơn</small></h2>
     <div class="q" id="quality"></div>
@@ -139,6 +169,7 @@ window.startReport = function(D){
   const all = D.orders.map(o=>({date:o[ix.date],revenue:o[ix.revenue],cost:o[ix.cost],profit:o[ix.profit],isCod:o[ix.isCod]===1,cod:o[ix.cod],deposit:o[ix.deposit],sheet:o[ix.sheet],cust:o[ix.cust],hasPhone:o[ix.hasPhone]===1,hasAddr:o[ix.hasAddr]===1}));
   const future = all.filter(o=>o.date>todayStr).length;
   const orders = all.filter(o=>o.date<=todayStr);
+  const firstSeen = {}; orders.forEach(o=>{ if(o.cust<0) return; if(!(o.cust in firstSeen) || o.date<firstSeen[o.cust]) firstSeen[o.cust]=o.date; });
 
   const $ = id => document.getElementById(id);
   const vnd = n => new Intl.NumberFormat('vi-VN').format(Math.round(n))+' ₫';
@@ -206,19 +237,24 @@ window.startReport = function(D){
     }
     $('subtitle').textContent='Kỳ: '+fmtFull(s)+' – '+fmtFull(e)+' ('+len+' ngày) · '+num(A.n)+' đơn đã bán';
 
+    const custSet={}; list.forEach(o=>{ if(o.cust>=0) custSet[o.cust]=1; });
+    const custTotal=Object.keys(custSet).length;
+    const custNew=Object.keys(custSet).filter(k=>firstSeen[k]>=s).length;
     const kp=[
       ['Doanh thu',vnd(A.revenue),delta(A.revenue,B&&B.revenue)],
       ['Lợi nhuận',vnd(A.profit),delta(A.profit,B&&B.profit)],
       ['Biên lợi nhuận',pct(A.margin),B?deltaPts(A.margin,B.margin):'<span class="dlt flat">—</span>'],
       ['Số đơn',num(A.n),delta(A.n,B&&B.n)],
+      ['Giá vốn',vnd(A.cost),delta(A.cost,B&&B.cost,true)],
       ['Giá trị TB / đơn',vnd(A.aov),delta(A.aov,B&&B.aov)],
       ['Doanh thu TB / ngày',vnd(A.revenue/len),B?delta(A.revenue/len,B.revenue/len):delta(0,null)],
+      ['Khách trong kỳ',num(custTotal),'<span class="dlt flat">'+num(custNew)+' mới · '+num(custTotal-custNew)+' quay lại</span>'],
       ['COD cần thu hộ',vnd(A.cod),'<span class="dlt flat">'+num(A.codN)+' đơn COD · '+num(A.freeN)+' freeship</span>']
     ];
     $('kpis').innerHTML=kp.map(k=>'<div class="card kpi"><div class="lbl">'+k[0]+'</div><div class="val">'+k[1]+'</div>'+k[2]+'</div>').join('');
 
     // ---- theo ngày
-    const byDay={}; list.forEach(o=>{(byDay[o.date]=byDay[o.date]||{r:0,p:0,n:0});byDay[o.date].r+=o.revenue;byDay[o.date].p+=o.profit;byDay[o.date].n++;});
+    const byDay={}; list.forEach(o=>{const x=(byDay[o.date]=byDay[o.date]||{r:0,p:0,n:0,c:0,cod:0,dep:0});x.r+=o.revenue;x.p+=o.profit;x.n++;x.c+=o.cost;x.cod+=o.isCod?o.cod:0;x.dep+=o.deposit;});
     const days=[]; for(let d=s;d<=e;d=addDays(d,1)) days.push(d);
     let labels=days, rv=days.map(d=>byDay[d]?byDay[d].r:0), pf=days.map(d=>byDay[d]?byDay[d].p:0), nn=days.map(d=>byDay[d]?byDay[d].n:0);
     let grain='ngày';
@@ -251,7 +287,7 @@ window.startReport = function(D){
     $('insights').innerHTML=ins.map(t=>'<li>'+t+'</li>').join('');
 
     // ---- theo tháng (toàn bộ lịch sử)
-    const bm={}; orders.forEach(o=>{const k=o.date.slice(0,7);(bm[k]=bm[k]||{r:0,p:0});bm[k].r+=o.revenue;bm[k].p+=o.profit;});
+    const bm={}; orders.forEach(o=>{const k=o.date.slice(0,7);const x=(bm[k]=bm[k]||{r:0,p:0,c:0,n:0,d:{}});x.r+=o.revenue;x.p+=o.profit;x.c+=o.cost;x.n++;x.d[o.date]=1;});
     const ms=Object.keys(bm).sort().slice(-12);
     mk('month',{type:'bar',data:{labels:ms.map(k=>k.slice(5)+'/'+k.slice(2,4)),datasets:[
       {label:'Doanh thu',data:ms.map(k=>bm[k].r),backgroundColor:cssv('--c1'),borderRadius:4,yAxisID:'y'},
@@ -305,9 +341,51 @@ window.startReport = function(D){
       row('Đơn “Đã bán” thiếu ngày chốt (không lên báo cáo)',num(D.quality.noDate)+' đơn')+
       row('Đơn mang ngày ở tương lai (đã loại khỏi báo cáo)',num(future)+' đơn');
 
+    // insight tập trung khách
+    if(top.length && A.revenue){
+      const share=top.reduce((a,t)=>a+t.r,0)/A.revenue*100;
+      $('insights').insertAdjacentHTML('beforeend','<li>Top 10 khách chiếm <b>'+pct(share)+'</b> doanh thu của kỳ'+(share>50?' — phụ thuộc nhiều vào ít khách.':'.')+'</li>');
+    }
+    if(custTotal) $('insights').insertAdjacentHTML('beforeend','<li>Có <b>'+num(custNew)+'</b> khách mới và <b>'+num(custTotal-custNew)+'</b> khách quay lại trong kỳ.</li>');
+
+    // ---- theo nguồn
+    const SRC=['SalesData','Mã V','THANH LÝ'];
+    const sa=[0,1,2].map(()=>({n:0,r:0,p:0}));
+    list.forEach(o=>{const x=sa[o.sheet]||sa[0];x.n++;x.r+=o.revenue;x.p+=o.profit;});
+    $('tbl-src').innerHTML=thead(['Nguồn','Đơn','Doanh thu','Lợi nhuận','Biên'])+'<tbody>'+sa.map((x,i)=>x.n?'<tr><td>'+SRC[i]+'</td><td>'+num(x.n)+'</td><td>'+vnd(x.r)+'</td><td>'+vnd(x.p)+'</td><td>'+pct(x.r?x.p/x.r*100:0)+'</td></tr>':'').join('')+'</tbody>';
+
+    // ---- theo mức giá
+    const BANDS=[[-1,1,'Chưa có giá'],[1,100000,'Dưới 100k'],[100000,200000,'100k – 200k'],[200000,300000,'200k – 300k'],[300000,500000,'300k – 500k'],[500000,1000000,'500k – 1 triệu'],[1000000,Infinity,'Trên 1 triệu']];
+    const ba=BANDS.map(()=>({n:0,r:0,p:0}));
+    list.forEach(o=>{const i=BANDS.findIndex(b=>o.revenue>=b[0]&&o.revenue<b[1]);if(i>=0){ba[i].n++;ba[i].r+=o.revenue;ba[i].p+=o.profit;}});
+    const bmax=Math.max.apply(null,ba.map(x=>x.n).concat([1]));
+    $('tbl-band').innerHTML=thead(['Mức giá','Đơn','Doanh thu','Biên'])+'<tbody>'+BANDS.map((b,i)=>ba[i].n?'<tr><td>'+b[2]+'<div class="bar"><i style="width:'+(ba[i].n/bmax*100)+'%"></i></div></td><td>'+num(ba[i].n)+'</td><td>'+vnd(ba[i].r)+'</td><td>'+pct(ba[i].r?ba[i].p/ba[i].r*100:0)+'</td></tr>':'').join('')+'</tbody>';
+
+    // ---- đơn lãi mỏng / lỗ
+    const loss=list.filter(o=>o.cost>0&&o.profit<=0), thin=list.filter(o=>o.cost>0&&o.profit>0&&o.revenue>0&&o.profit/o.revenue<0.1), nocost=list.filter(o=>!o.cost);
+    const sum=(a,f)=>a.reduce((s,o)=>s+f(o),0);
+    $('lossbox').innerHTML=
+      row('Đơn lỗ hoặc hoà vốn',num(loss.length)+' đơn · '+vnd(sum(loss,o=>o.profit)))+
+      row('Đơn lãi mỏng (dưới 10%)',num(thin.length)+' đơn')+
+      row('Đơn chưa có giá vốn',num(nocost.length)+' đơn · DT '+vnd(sum(nocost,o=>o.revenue)))+
+      row('Đơn lãi tốt (từ 10%)',num(list.length-loss.length-thin.length-nocost.length)+' đơn');
+
+    // ---- chi tiết theo ngày
+    const dl=days.filter(d=>byDay[d]).reverse();
+    $('t-detail').textContent=dl.length+' ngày có đơn';
+    $('tbl-day').innerHTML=thead(['Ngày','Đơn','Doanh thu','Giá vốn','Lợi nhuận','Biên','COD','Khách cọc'])+'<tbody>'+dl.map(d=>{const x=byDay[d];return '<tr><td>'+fmtFull(d)+'</td><td>'+x.n+'</td><td>'+vnd(x.r)+'</td><td>'+vnd(x.c)+'</td><td class="'+(x.p<0?'neg':'')+'">'+vnd(x.p)+'</td><td>'+pct(x.r?x.p/x.r*100:0)+'</td><td>'+vnd(x.cod)+'</td><td>'+vnd(x.dep)+'</td></tr>'}).join('')+'</tbody>'+
+      '<tfoot><tr><td>Tổng</td><td>'+num(A.n)+'</td><td>'+vnd(A.revenue)+'</td><td>'+vnd(A.cost)+'</td><td>'+vnd(A.profit)+'</td><td>'+pct(A.margin)+'</td><td>'+vnd(A.cod)+'</td><td>'+vnd(A.deposit)+'</td></tr></tfoot>';
+    csvRows=[['Ngày','Số đơn','Doanh thu','Giá vốn','Lợi nhuận','COD','Khách cọc']].concat(dl.slice().reverse().map(d=>{const x=byDay[d];return [d,x.n,x.r,x.c,x.p,x.cod,x.dep]}));
+
+    // ---- tổng hợp theo tháng
+    const mk_=Object.keys(bm).sort().reverse();
+    $('tbl-month').innerHTML=thead(['Tháng','Đơn','Doanh thu','Giá vốn','Lợi nhuận','Biên','Ngày có đơn','So tháng trước'])+'<tbody>'+mk_.map((k,i)=>{const x=bm[k],pv=bm[mk_[i+1]];const dd=pv&&pv.r?(x.r-pv.r)/pv.r*100:null;return '<tr><td>'+k.slice(5)+'/'+k.slice(0,4)+'</td><td>'+num(x.n)+'</td><td>'+vnd(x.r)+'</td><td>'+vnd(x.c)+'</td><td>'+vnd(x.p)+'</td><td>'+pct(x.r?x.p/x.r*100:0)+'</td><td>'+Object.keys(x.d).length+'</td><td class="'+(dd===null?'':dd>=0?'up':'down')+'">'+(dd===null?'—':(dd>=0?'▲ ':'▼ ')+pct(Math.abs(dd)))+'</td></tr>'}).join('')+'</tbody>';
+
     document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.k===cur));
   }
 
+  let csvRows=[];
+  function thead(cols){return '<thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead>'}
   function row(a,b){return '<div><span>'+a+'</span><b>'+b+'</b></div>'}
   function qrow(a,x,n,l){return '<div><span>'+a+'</span><span><b>'+num(x)+'/'+num(n)+'</b> <span class="pill '+l+'">'+pct(n?x/n*100:0)+'</span></span></div>'}
   function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
@@ -322,6 +400,12 @@ window.startReport = function(D){
   $('periods').innerHTML=PERIODS.map(p=>'<button type="button" class="chip" data-k="'+p.k+'">'+p.l+'</button>').join('');
   $('periods').onclick=(e=>{const b=e.target.closest('.chip');if(!b)return;cur=b.dataset.k;render()});
   $('btn-print').onclick=()=>window.print();
+  $('btn-csv').onclick=()=>{
+    const csv='\uFEFF'+csvRows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    a.download='bao-cao-theo-ngay-'+todayStr+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  };
+  window.__rerender=render;
   $('btn-theme').onclick=()=>{
     const r=document.documentElement, dark=getComputedStyle(r).getPropertyValue('--bg').trim()==='#0b1020';
     r.setAttribute('data-theme',dark?'light':'dark'); render();
@@ -337,6 +421,29 @@ window.startReport = function(D){
   var btn = document.getElementById('gate-btn'), err = document.getElementById('gate-err');
   var refresh = document.getElementById('btn-refresh');
   wrap.hidden = true; gate.hidden = false; refresh.hidden = false;
+
+  // Chế độ nhúng: trang được mở trong khung của app admin (cùng domain) và app đã đăng nhập
+  // -> bỏ cổng mật khẩu, theo giao diện sáng/tối của app, báo chiều cao cho khung cha.
+  var parentApp = null;
+  try {
+    if (window.parent !== window && /(^|[?&])embed=1(&|$)/.test(location.search)) {
+      var pa = window.parent.document.getElementById('app');
+      if (pa && !pa.classList.contains('hidden')) parentApp = window.parent.document;
+    }
+  } catch (e) { parentApp = null; }
+  var root = document.documentElement;
+  function syncTheme(){
+    if (!parentApp) return;
+    var light = parentApp.body.classList.contains('light-theme');
+    root.classList.toggle('embed-light', light);
+    root.classList.toggle('embed-dark', !light);
+    if (window.__rerender) window.__rerender();
+  }
+  function postHeight(){
+    if (!parentApp) return;
+    var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+    window.parent.postMessage({type: 'report-height', h: h}, location.origin);
+  }
 
   function api(fn, args){
     return fetch('/api/gas/' + fn, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({args: args || []})})
@@ -415,6 +522,17 @@ window.startReport = function(D){
       err.hidden = false; pw.select();
     }).then(function(){ btn.disabled = false; btn.textContent = 'Xem báo cáo'; });
   };
+  window.__reload = function(){ if (!refresh.disabled) load(); };
+
+  if (parentApp) {
+    root.classList.add('embed');
+    gate.hidden = true; wrap.hidden = false; refresh.hidden = false;
+    syncTheme();
+    try { new MutationObserver(syncTheme).observe(parentApp.body, {attributes: true, attributeFilter: ['class']}); } catch (e) {}
+    if (window.ResizeObserver) new ResizeObserver(postHeight).observe(document.body);
+    load().then(postHeight);
+    return;
+  }
   pw.focus();
 })();
 </script>

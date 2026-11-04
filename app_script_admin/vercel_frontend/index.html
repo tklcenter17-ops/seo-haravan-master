@@ -103,6 +103,10 @@
         <i class="fas fa-fire" style="color:#ff6b35;"></i>
         <span>Đơn chốt theo ngày</span>
       </a>
+      <a href="#" class="nav-item" onclick="switchPage('report', this)" id="nav-report">
+        <i class="fas fa-chart-pie" style="color:#a78bfa;"></i>
+        <span>Báo cáo tổng quan</span>
+      </a>
       <a href="#" class="nav-item" onclick="switchPage('viettel_orders', this)" id="nav-viettel_orders">
         <i class="fas fa-shipping-fast" style="color:#e02c1b;"></i>
         <span>Tạo đơn Viettel</span>
@@ -121,10 +125,6 @@
       <a href="#" class="nav-item" onclick="switchPage('stats', this)" id="nav-stats">
         <i class="fas fa-chart-line"></i>
         <span>Báo cáo doanh số</span>
-      </a>
-      <a href="/report.html" target="_blank" rel="noopener" class="nav-item" id="nav-report">
-        <i class="fas fa-chart-pie"></i>
-        <span>Báo cáo tổng quan</span>
       </a>
 
       <div class="nav-section-label">HỆ THỐNG</div>
@@ -1134,6 +1134,10 @@
     </main>
 
     <!-- ══ PAGE: DAILY ORDERS ══ -->
+    <main class="page-content hidden" id="page-report">
+      <iframe id="report-frame" title="Báo cáo tổng quan" data-src="/report.html?embed=1" style="width:100%;height:900px;border:0;display:block;background:transparent;"></iframe>
+    </main>
+
     <main class="page-content hidden" id="page-daily">
       <div class="daily-orders-section" style="margin-top:0;">
 
