@@ -6414,7 +6414,7 @@ function renderDailyOrders(rows, dateRange) {
       <td class="cell-editable" onclick="startInlineEdit(this,${r.rowIndex},'giaVon',${r.giaVon},'${safeSheet}')" title="Click để sửa giá vốn">${fmt(r.giaVon)}</td>
       <td class="${tienLoiClass}">${tienLoiSign}${fmt(r.tienLoi)}</td>
       <td>${r.khachCoc ? fmt(r.khachCoc) : '<span style="color:var(--text-muted)">—</span>'}</td>
-      <td>${isDailyCodOrder_(r) ? fmt(r.tienCOD) : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td>${isDailyCodOrder_(r) ? ((Number(r.tienCOD) || 0) <= 0 && (Number(r.giaBan) || 0) > 0 && (Number(r.khachCoc) || 0) >= (Number(r.giaBan) || 0) ? '<span style="color:var(--success,#16a34a);font-size:0.82rem;font-weight:600;" title="Khách đã cọc đủ tiền hàng, không thu COD">Đã cọc đủ</span>' : fmt(r.tienCOD)) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td title="${r.tenKhach || ''}">
         <div class="daily-customer-cell">
           <div class="daily-customer-main">
