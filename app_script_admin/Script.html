@@ -6069,12 +6069,38 @@ function isDailyCodOrder_(row) {
   return String(row?.hinhThuc || '').trim().toUpperCase() === 'COD';
 }
 
+// Cùng một khách có thể được nhập khi có SĐT, khi không (vd "Bác Gấm" 1 đơn có SĐT, 1 đơn bỏ trống SĐT).
+// Khóa gốc (SĐT nếu có, không thì tên) sẽ tách họ thành 2 khách -> không cộng gộp được COD.
+// Ở đây: dòng KHÔNG có SĐT được gộp vào khách có SĐT cùng TÊN, nhưng chỉ khi tên đó ứng với đúng 1 SĐT
+// trong danh sách đang xem (tên trùng mà khác SĐT là người khác -> không gộp).
+let dailyCustomerKeyAlias_ = {};
+
+function buildDailyCustomerKeyAlias_(rows) {
+  const phoneKeysByName = Object.create(null);
+  (rows || []).forEach((row) => {
+    const key = getCustomerKey_(row?.tenKhach, row?.sdtKhach);
+    if (!key || key.indexOf('phone:') !== 0) return;
+    const name = String(row?.tenKhach || '').trim().toLowerCase();
+    if (!name) return;
+    if (!phoneKeysByName[name]) phoneKeysByName[name] = Object.create(null);
+    phoneKeysByName[name][key] = true;
+  });
+  const alias = Object.create(null);
+  Object.keys(phoneKeysByName).forEach((name) => {
+    const phoneKeys = Object.keys(phoneKeysByName[name]);
+    if (phoneKeys.length === 1) alias['name:' + name] = phoneKeys[0];
+  });
+  return alias;
+}
+
 function getDailyCustomerCodKey_(row) {
   const key = getCustomerKey_(row?.tenKhach, row?.sdtKhach);
-  return key || `row:${row?.sourceSheet || row?.sheetName || 'SalesData'}:${row?.rowIndex || row?.maSP || ''}`;
+  if (key) return dailyCustomerKeyAlias_[key] || key;
+  return `row:${row?.sourceSheet || row?.sheetName || 'SalesData'}:${row?.rowIndex || row?.maSP || ''}`;
 }
 
 function buildDailyCustomerCodSummary_(rows) {
+  dailyCustomerKeyAlias_ = buildDailyCustomerKeyAlias_(rows);
   return (rows || []).reduce((map, row) => {
     const key = getDailyCustomerCodKey_(row);
     if (!key) return map;
