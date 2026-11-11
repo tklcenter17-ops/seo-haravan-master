@@ -25,10 +25,34 @@ _NON_LIGHTER_EXCLUDE_RE = re.compile(
     r"靴下|ソックス|時計|ウォッチ|腕時計|バッグ|財布|コインケース|小銭入れ|名刺入れ|カードケース|パスケース|マネークリップ|"
     r"ネクタイ|カフス|タイピン|タイバー|香水|フレグランス|洋酒|古酒|ウイスキー|ブランデー|"
     r"万年筆|ボールペン|ペン先|シャツ|ジャケット|コート|シューズ|ベルト|マフラー|スカーフ|ハンカチ|スーツ|"
-    r"メガネ|眼鏡|サングラス|めがね|リング|指輪|ネックレス|ブレスレット|ペンダント|ピアス|イヤリング|ブローチ|"
+    # 'リング' (nhẫn) không được khớp nhầm 'スターリング' (bạc sterling), 'Oリング/オーリング' (gioăng), 'スプリング' (lò xo)
+    r"メガネ|眼鏡|サングラス|めがね|(?<!スター)(?<!オー)(?<![OoＯｏ])(?<!スプ)リング|指輪|ネックレス|ブレスレット|ペンダント|ピアス|イヤリング|ブローチ|"
     r"キーリング|キーケース|キーホルダー|灰皿|アッシュトレイ|シガーカッター|葉巻カッター|熱収縮チューブ|ハンダ|配線修理|ガスボンベ|フリントのみ|替え芯のみ)",
     re.IGNORECASE,
 )
+
+# Nhóm loại trừ tuyệt đối: thuốc lá điện tử / thuốc lá nung nóng, chỉ bán đá lửa / bấc (loại kể cả khi tiêu đề có chữ ライター)
+_HARD_NON_LIGHTER_RE = re.compile(
+    r"(アイコス|iqos|iluma|イルマ|glo|グロー|ploom|プルーム|ベイプ|vape|電子タバコ|電子たばこ|加熱式タバコ|加熱式|ポッド|relx|"
+    r"ドクターベイプ|dr\.vape|myblu|juul|シーシャ|shisha|リキッド|ニコチン|アトマイザー|フリントのみ|替え芯のみ)",
+    re.IGNORECASE,
+)
+
+
+def _is_non_lighter_title(title: str) -> bool:
+    """Tiêu đề thuộc hàng không phải bật lửa?
+
+    - Thuốc lá điện tử / chỉ bán đá lửa, bấc: luôn loại.
+    - Từ chỉ món khác (đồng hồ, gạt tàn, bút, bình gas...): chỉ loại khi tiêu đề KHÔNG có chữ ライター thật
+      (không tính 'ライター用'), vì lô bật lửa hay ghi kèm món phụ, ví dụ 'ZIPPO 4点まとめ ... 懐中時計 ... オイルライター'.
+    """
+    if not title:
+        return False
+    if _HARD_NON_LIGHTER_RE.search(title):
+        return True
+    if _NON_LIGHTER_EXCLUDE_RE.search(title):
+        return not re.search(r"ライター(?!用)", title)
+    return False
 
 # Regex chỉ báo bật lửa / phụ kiện châm lửa hoặc các nhãn hiệu bật lửa danh tiếng
 _LIGHTER_INDICATOR_RE = re.compile(
@@ -38,7 +62,8 @@ _LIGHTER_INDICATOR_RE = re.compile(
 
 # Regex nhận diện dấu hiệu bán theo lô / nhiều cây
 _LOT_KEYWORDS_RE = re.compile(
-    r"(まとめ(?:売り)?|大量|セット|アソート|ジャンク|\d+\s*(?:点|本|個|台)|詰め合わせ|詰合せ|遺品整理|遺品|蔵出し|蔵出|引き取り品|引取品|実家|ガラクタ|当時物|旧家)",
+    r"(まとめ(?:売り)?|大量|セット|アソート|ジャンク|\d+\s*(?:点|本|個|台)|詰め合わせ|詰合せ|遺品整理|遺品|蔵出し|蔵出|引き取り品|引取品|実家|ガラクタ|当時物|旧家|"
+    r"複数(?!出品)|多数(?!出品)|色々|いろいろ|一括)",
     re.IGNORECASE,
 )
 
@@ -109,7 +134,7 @@ def is_lot_title(title: str) -> bool:
     title_clean = title.strip()
 
     # 1. Loại trừ hàng phụ kiện, trang sức, rượu, đồng hồ, tất vớ
-    if _NON_LIGHTER_EXCLUDE_RE.search(title_clean):
+    if _is_non_lighter_title(title_clean):
         return False
 
     # 2. Loại trừ nếu chỉ bán hộp rỗng hoặc linh kiện/ruột
@@ -211,20 +236,29 @@ def is_ending_today(endtime_val: str | int, now_utc: datetime | None = None) -> 
     return True, remain_text, total_mins
 
 
-async def fetch_yahoo_search_full_blocks(query: str = "", limit: int = 100, category_id: int | str = "") -> list[dict[str, Any]]:
+async def fetch_yahoo_search_full_blocks(
+    query: str = "",
+    limit: int = 100,
+    category_id: int | str = "",
+    offset: int = 1,
+    sort_key: str = "end",
+    sort_order: str = "a",
+) -> list[dict[str, Any]]:
     """Gửi request tìm kiếm trên Yahoo Auctions và trích xuất TOÀN BỘ (lên đến 100 sản phẩm) từ HTML blocks và pageData.
-    
+
     Khóa chặt danh mục bật lửa đồ cổ/sưu tầm: 26138 (アンティーク、コレクション > 雑貨 > 喫煙グッズ > ライター).
+    offset/sort_key/sort_order: lật trang (b=1, 101, 201...) và kiểu sắp xếp (mặc định s1=end&o1=a = sắp hết giờ trước).
     """
     LIGHTER_ROOT_CAT = "26138"
     target_cat = str(category_id).strip() if category_id else LIGHTER_ROOT_CAT
+    b_offset = max(1, int(offset or 1))
 
     if query:
         encoded_q = urllib.parse.quote_plus(query)
         # Bắt buộc kèm auccat={target_cat} để giới hạn tìm kiếm trong danh mục bật lửa 26138
-        url = f"https://auctions.yahoo.co.jp/search/search?p={encoded_q}&auccat={target_cat}&exflg=1&b=1&n={limit}&s1=end&o1=a"
+        url = f"https://auctions.yahoo.co.jp/search/search?p={encoded_q}&auccat={target_cat}&exflg=1&b={b_offset}&n={limit}&s1={sort_key}&o1={sort_order}"
     else:
-        url = f"https://auctions.yahoo.co.jp/category/list/{target_cat}/?b=1&n={limit}&s1=end&o1=a"
+        url = f"https://auctions.yahoo.co.jp/category/list/{target_cat}/?b={b_offset}&n={limit}&s1={sort_key}&o1={sort_order}"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -262,6 +296,17 @@ async def fetch_yahoo_search_full_blocks(query: str = "", limit: int = 100, cate
                         bids = int(it.get("bidCount") or 0)
                         endtime_raw = str(it.get("endTime") or "").strip()
                         img_url = str(it.get("imageUrl") or "").strip()
+                        # Phí ship nội địa Nhật: chỉ lấy khi miễn phí (0) hoặc phí cố định (SINGLE/QUANTITY).
+                        # Phí theo tỉnh / kích thước / theo giá chốt (AMOUNT) / trả sau (着払い, 落札後) -> None để không báo sai.
+                        ship_fee = None
+                        if it.get("isFreeShipping"):
+                            ship_fee = 0
+                        elif it.get("hasShippingFee") and str(it.get("currentPriceShippingFeeType") or "").upper() in ("SINGLE", "QUANTITY"):
+                            try:
+                                fee_val = int(it.get("currentPriceShippingFee") or 0)
+                                ship_fee = fee_val if fee_val > 0 else None
+                            except (TypeError, ValueError):
+                                ship_fee = None
                         if aid and title and not any(x["auction_id"] == aid for x in items):
                             items.append({
                                 "auction_id": aid,
@@ -271,6 +316,7 @@ async def fetch_yahoo_search_full_blocks(query: str = "", limit: int = 100, cate
                                 "end_time": endtime_raw,
                                 "url": f"https://auctions.yahoo.co.jp/jp/auction/{aid}",
                                 "image_url": img_url,
+                                "shipping_fee_jpy": ship_fee,
                             })
                 except Exception as json_err:
                     logger.debug(f"Không thể parse __NEXT_DATA__: {json_err}")
@@ -344,6 +390,99 @@ async def fetch_yahoo_search_full_blocks(query: str = "", limit: int = 100, cate
         logger.error(f"Lỗi tải Yahoo search '{query}': {e}")
 
     return items
+
+
+# Kết quả quét trọn danh mục được dùng lại trong 4 phút: worker chạy 10 phút/lần nên luôn lấy mới,
+# chỉ các lần bấm nút chế độ liền nhau mới dùng lại, tránh mỗi lần bấm lại tải thêm ~20 trang Yahoo.
+_BID_SWEEP_TTL_SECS = 240
+_BID_SWEEP_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+
+
+async def fetch_category_bid_sweep(
+    category_id: str = "26138",
+    max_pages: int = 40,
+    concurrency_sem: Any = None,
+) -> list[dict[str, Any]]:
+    """Quét TRỌN danh mục theo thứ tự 'nhiều bid nhất trước', dừng khi gặp phiên 0 bid.
+
+    Lý do (đo thật 11/11/2026): danh mục 26138 có ~58.000 phiên, riêng 1 ngày ~7.000 phiên kết thúc,
+    nên trang 100 phiên 'sắp hết giờ' chỉ phủ được khoảng 1 giờ tới. Toàn danh mục chỉ ~1.900 phiên có bid
+    (~19 trang), nên quét theo số bid lấy ĐỦ mọi phiên có bid mà vẫn nhẹ.
+    Trên Yahoo hiện tại s1=bids&o1=a mới là 'nhiều bid trước' (-BID_COUNT); nếu Yahoo đảo lại thì tự thử o1=d.
+    """
+    import asyncio
+
+    cache_key = str(category_id)
+    cached = _BID_SWEEP_CACHE.get(cache_key)
+    if cached and time.monotonic() - cached[0] < _BID_SWEEP_TTL_SECS:
+        return [dict(x) for x in cached[1]]
+
+    sem = concurrency_sem or asyncio.Semaphore(4)
+    page_size = 100
+    batch_size = 4
+
+    async def _page(page_idx: int, order: str) -> list[dict[str, Any]]:
+        for attempt in range(2):
+            async with sem:
+                res = await fetch_yahoo_search_full_blocks(
+                    query="",
+                    limit=page_size,
+                    category_id=category_id,
+                    offset=1 + page_idx * page_size,
+                    sort_key="bids",
+                    sort_order=order,
+                )
+            if res:
+                return res
+            if attempt == 0:
+                await asyncio.sleep(1.5)  # Yahoo hay ngắt kết nối thoáng qua: thử lại 1 lần
+        return []
+
+    def _bids(it: dict[str, Any]) -> int:
+        try:
+            return int(it.get("bids") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _is_last_page(pg: list[dict[str, Any]]) -> bool:
+        return len(pg) < page_size or _bids(pg[-1]) == 0
+
+    order = "a"
+    first = await _page(0, order)
+    if first and _bids(first[0]) == 0:
+        alt = await _page(0, "d")
+        if alt and _bids(alt[0]) > 0:
+            order, first = "d", alt
+
+    collected: list[dict[str, Any]] = list(first)
+    if not first:
+        return collected  # Yahoo lỗi/chặn: không lưu cache để lượt sau quét lại
+
+    failed = False
+    if not _is_last_page(first):
+        page_idx = 1
+        while page_idx < max_pages:
+            idxs = list(range(page_idx, min(page_idx + batch_size, max_pages)))
+            pages = await asyncio.gather(*[_page(i, order) for i in idxs], return_exceptions=True)
+            stop = False
+            for pg in pages:
+                if isinstance(pg, Exception) or not pg:
+                    logger.warning(f"Quét bid danh mục {category_id}: 1 trang lỗi/rỗng sau khi thử lại ({pg!r:.80}), dừng ở {len(collected)} phiên")
+                    failed = True
+                    stop = True
+                    continue
+                collected.extend(pg)
+                if _is_last_page(pg):
+                    stop = True
+                    break  # các trang sau trong cùng lượt chỉ còn phiên 0 bid
+            if stop:
+                break
+            page_idx += batch_size
+
+    logger.info(f"Quét trọn danh mục {category_id} theo bid: {len(collected)} phiên, {sum(1 for x in collected if _bids(x) > 0)} phiên có bid")
+    if not failed:
+        _BID_SWEEP_CACHE[cache_key] = (time.monotonic(), [dict(x) for x in collected])
+    return collected
 
 
 def classify_lighter_lot_type(title: str) -> tuple[str, str, str]:
@@ -528,6 +667,8 @@ async def scan_today_lighter_lots(queries: list[str] | None = None, mode: str = 
     tasks = [_fetch_with_sem(q) for q in queries]
     # Bổ sung 1 task quét thẳng danh mục gốc bật lửa đồ cổ/sưu tầm Yahoo 26138
     tasks.append(_fetch_with_sem("26138", is_cat=True))
+    # Bổ sung quét TRỌN mọi phiên có bid trong danh mục 26138 (không sót phiên nằm ngoài 100 kết quả đầu của từ khóa)
+    tasks.append(fetch_category_bid_sweep("26138", concurrency_sem=sem))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -545,7 +686,7 @@ async def scan_today_lighter_lots(queries: list[str] | None = None, mode: str = 
             endtime_raw = it.get("end_time", "")
 
             # Bộ lọc sơ bộ danh mục / hàng không phải bật lửa
-            if _NON_LIGHTER_EXCLUDE_RE.search(title):
+            if _is_non_lighter_title(title):
                 continue
             if not _LIGHTER_INDICATOR_RE.search(title):
                 continue
@@ -599,6 +740,7 @@ async def scan_today_lighter_lots(queries: list[str] | None = None, mode: str = 
                 "remain_mins": it.get("remain_mins", -1),
                 "url": it.get("url") or f"https://auctions.yahoo.co.jp/jp/auction/{aid}",
                 "image_url": it.get("image_url", ""),
+                "shipping_fee_jpy": it.get("shipping_fee_jpy"),
                 "status": "open",
                 "is_fetched": True,
                 "category_id": "26138",

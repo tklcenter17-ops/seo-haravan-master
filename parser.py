@@ -1094,7 +1094,8 @@ _NON_LIGHTER_EXCLUDE_RE = re.compile(
     r"靴下|ソックス|時計|ウォッチ|腕時計|バッグ|財布|コインケース|小銭入れ|名刺入れ|カードケース|パスケース|マネークリップ|"
     r"ネクタイ|カフス|タイピン|タイバー|香水|フレグランス|洋酒|古酒|ウイスキー|ブランデー|"
     r"万年筆|ボールペン|ペン先|シャツ|ジャケット|コート|シューズ|ベルト|マフラー|スカーフ|ハンカチ|スーツ|"
-    r"メガネ|眼鏡|サングラス|めがね|リング|指輪|ネックレス|ブレスレット|ペンダント|ピアス|イヤリング|ブローチ|"
+    # 'リング' (nhẫn) không được khớp nhầm 'スターリング' (bạc sterling), 'Oリング/オーリング' (gioăng), 'スプリング' (lò xo)
+    r"メガネ|眼鏡|サングラス|めがね|(?<!スター)(?<!オー)(?<![OoＯｏ])(?<!スプ)リング|指輪|ネックレス|ブレスレット|ペンダント|ピアス|イヤリング|ブローチ|"
     r"キーリング|キーケース|キーホルダー|灰皿|アッシュトレイ|シガーカッター|葉巻カッター|熱収縮チューブ|ハンダ|配線修理)",
     re.IGNORECASE,
 )
@@ -1233,6 +1234,44 @@ _LOT_POSITIVE_KEYWORDS = [
     "まとめ売り", "まとめて", "大量まとめ", "大量", "詰め合わせ", "詰合せ", "一括", "アソート", "アソートセット"
 ]
 
+# Cụm gom ship / mua nhiều phiên / người bán đăng nhiều phiên: KHÔNG phải dấu hiệu bán chung 1 lô
+_NOT_LOT_PHRASE_RE = re.compile(
+    r"(?:お?まとめ(?:て)?\s*(?:買い|がい|取引|発送|配送|購入|落札|割引|割|同梱)|(?:複数|多数)\s*出品)"
+)
+
+# Từ bán gom bổ sung: 'まとめ' / 'おまとめ' đứng riêng, 多数, 色々, いろいろ, 'N品おまとめ / N品セット'
+_EXTRA_LOT_KEYWORD_RE = re.compile(r"(?:まとめ|多数|色々|いろいろ|\d+\s*品\s*(?:お?まとめ|セット))")
+
+# Chỉ bán hộp / ruột / linh kiện (không có bật lửa hoàn chỉnh)
+_BOX_UNIT_ONLY_RE = re.compile(
+    r"(?:空箱|箱のみ|ケースのみ|元箱のみ|木箱のみ|カバーのみ|ポーチのみ|インサイドユニット|インナーユニット|ユニットのみ|"
+    r"部品のみ|パーツのみ|フリントのみ|発火石のみ|替え芯のみ|ガスボンベのみ|ガス缶のみ)"
+)
+
+# Số lượng đồ tiêu hao (gas, dầu, đá lửa, bấc): không được tính là số cây bật lửa
+_CONSUMABLE_QTY_RE = re.compile(
+    r"(?:ガスボンベ|ガス缶|ガス|オイル缶|オイル|フリント|発火石|着火石|石|替え芯|芯|ウィック)\s*[:：xX×]?\s*\d+\s*(?:本入|個入|本|個|点|粒|缶|セット)"
+)
+
+
+# Chủ thể là phụ kiện (ライターケース, ライター オイル, 化粧箱 5個, ポーチ まとめ...): khi đó 'まとめ' là gom phụ kiện, không phải gom bật lửa
+_ACCESSORY_SUBJECT_RE = re.compile(
+    r"(?:ライター\s*(?:ケース|カバー|ポーチ|オイル|ガス(?!ライター)|用)|"
+    r"(?:ケース|カバー|ポーチ|化粧箱|空き箱|空箱|元箱|箱|オイル缶|オイル|インナー|ユニット|フリント|着火石|発火石|ガスボンベ|ボンベ|替え芯|芯)\s*"
+    r"(?:\d+\s*(?:点|個|本|缶|箱|枚|セット)|お?まとめ|セット))"
+)
+
+
+def _has_lot_keyword(text: str) -> bool:
+    """Có từ khóa bán gom nhiều cây không (sau khi bỏ các cụm gom ship / nhiều phiên như まとめ買い, おまとめ取引, 複数出品).
+
+    Từ bổ sung ('まとめ' đứng riêng, 多数, 色々...) chỉ tính khi chủ thể tiêu đề không phải phụ kiện.
+    """
+    t = _NOT_LOT_PHRASE_RE.sub(" ", text or "")
+    if any(k in t for k in _LOT_POSITIVE_KEYWORDS):
+        return True
+    return bool(_EXTRA_LOT_KEYWORD_RE.search(t)) and not _ACCESSORY_SUBJECT_RE.search(t)
+
 _BRAND_PATTERNS = [
     ("Dupont", re.compile(r"(dupont|デュポン|st dupont|s\.t\. dupont)", re.IGNORECASE)),
     ("Zippo", re.compile(r"(zippo|ジッポ|ジッポー)", re.IGNORECASE)),
@@ -1304,6 +1343,7 @@ def extract_actual_lighter_count(title: str, description: str = "") -> tuple[int
         r"(\d+)\s*本セット",
         r"(\d+)\s*(?:個|本|点|丁|台)\s*(?:セット|まとめ|まとめて|売り)?",
         r"(\d+)\s*点セット",
+        r"(\d+)\s*品\s*(?:お?まとめ|セット)",
         r"(?:lô|set|pack|combo)\s*(\d+)",
         r"(\d+)\s*(?:cây|chiec|chiếc|qua|cái|pcs|items)",
         r"(\d+)\s*個まとめて",
@@ -1321,7 +1361,7 @@ def extract_actual_lighter_count(title: str, description: str = "") -> tuple[int
         return max_count, True, f"Xác nhận số lượng {max_count} cây bật lửa"
 
     # 4. Nếu không có số lượng cụ thể, kiểm tra dấu hiệu bán sỉ gom nhiều cây rõ ràng
-    has_lot_keyword = any(k in full_text for k in _LOT_POSITIVE_KEYWORDS) or "複数" in full_text
+    has_lot_keyword = _has_lot_keyword(full_text) or "複数" in _NOT_LOT_PHRASE_RE.sub(" ", full_text)
     has_no_split = bool(re.search(r"バラ売り(不可|はできません|はいたしません|NG|しません|出来ません)", full_text))
 
     if has_lot_keyword or has_no_split:
@@ -1480,6 +1520,18 @@ def verify_yahoo_lighter_lot(info: dict[str, Any]) -> dict[str, Any]:
     if is_acc_title or is_box_or_unit or ("空箱" in full_text and not any(k in full_text for k in ["ライター本体", "本ライター", "個ライター"])):
         m_lighter_attached = re.search(r"(?:ライター\s*(?:本体\s*)?\d+\s*(?:本|個|点)|本体\s*\d+\s*(?:本|個|点))", full_text)
         if not m_lighter_attached:
+            # Lô nhiều cây bật lửa kèm đồ tiêu hao (gas, đá lửa, bấc) vẫn là lô hợp lệ khi: đếm được >= 2 cây
+            # (không tính số lượng gas/đá/bấc), tiêu đề có chữ ライター thật (không phải 'ライター用'),
+            # và không ghi chỉ bán hộp / ruột / linh kiện.
+            mixed_cnt, _, _ = extract_actual_lighter_count(_CONSUMABLE_QTY_RE.sub(" ", title), "")
+            if (
+                mixed_cnt is not None
+                and mixed_cnt >= 2
+                and re.search(r"ライター(?!用)", title)
+                and not _BOX_UNIT_ONLY_RE.search(full_text)
+            ):
+                m_lighter_attached = True
+        if not m_lighter_attached:
             result["decision_code"] = "ACCESSORY_ONLY"
             result["evidence_reason"] = "Chỉ bán hộp rỗng, vỏ hộp, ruột hoặc linh kiện rời; không có bật lửa hoàn chỉnh"
             return result
@@ -1514,7 +1566,7 @@ def verify_yahoo_lighter_lot(info: dict[str, Any]) -> dict[str, Any]:
         return result
 
     # Nếu không có số lượng và cũng không có bất kỳ từ khóa lot nào -> Hàng lẻ
-    has_lot_kw = any(k in full_text for k in _LOT_POSITIVE_KEYWORDS)
+    has_lot_kw = _has_lot_keyword(full_text)
     if count is None and not is_multiple_confirmed and not has_lot_kw:
         result["decision_code"] = "SINGLE_ITEM"
         result["evidence_reason"] = "Không phát hiện dấu hiệu bán chung từ 2 cây bật lửa trở lên"

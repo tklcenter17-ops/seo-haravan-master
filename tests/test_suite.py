@@ -3387,15 +3387,215 @@ def test_t44_kanban_and_pnl_tracker(test_db):
     assert len(get_kanban_items(test_db)) == 0
 
 
+# ---------------------------------------------------------------------------
+# T106 - T110: Dò lot bật lửa đủ hơn (tiêu đề thật Yahoo ngày 11/11/2026)
+# ---------------------------------------------------------------------------
+
+def _radar_chain_accepts(title: str) -> bool:
+    """Chạy đúng chuỗi lọc của radar cho 1 phiên đã có bid, kết thúc hôm nay."""
+    import radar_service as rs
+    from parser import verify_yahoo_lighter_lot
+
+    if rs._is_non_lighter_title(title):
+        return False
+    if not rs._LIGHTER_INDICATOR_RE.search(title):
+        return False
+    if not rs.is_lot_title(title):
+        return False
+    v = verify_yahoo_lighter_lot({
+        "auction_id": "t106", "title": title, "current_price_jpy": 5000, "bids": 3,
+        "status": "open", "is_fetched": True,
+        "category_id": "26138", "category_path": [{"id": "26138", "name": "ライター"}],
+    })
+    return bool(v["is_verified_lot"])
 
 
+def test_t106_real_lots_previously_missed_are_accepted():
+    """T106: Lot thật từng bị sót (スターリング, まとめ/おまとめ, 時計 trong lot, N品, lot lẫn ガスボンベ) phải được nhận."""
+    real_lots = [
+        "ジッポ（Zippo）ライター3点 スターリングシルバー1992/他 ※イニシャル入り含む ジャンク 火花未確認◆おたからや【x-LI05781】",
+        "48T-10-6 ジッポ ZIPPO ライター まとめ 斜め ナナメ 等 火花着火未確認",
+        "ZIPPO☆ジッポ ライターおまとめ マルボロ/セブンスター他塗装剥がれ/イニシャル入り有りジャンク品※火花未確認◆おたからや【B-LI05860】",
+        "48T-10-7 ジッポ ZIPPO ライター まとめ limited No.0199 時計 等 火花着火未確認",
+        "【AU-27】ブランドライター　6品おまとめ　dunhill　ダンヒル　S.T.Dupont　デュポン　CELINE　セリーヌ　ローラー式　ガスライター",
+        "【16点セット/動作未確認】RONSON ロンソン MaruMan マルマン FONG YUON 他 ライター 携帯灰皿 マッチケース ガスボンベ(ライター専用）",
+        "【宝】 Zippo ジッポ― ケース付き ライター いろいろセット TC091TBBC1",
+        "■Zippo / GIVENCHY / YSL / RONSON 他 ライター 多数 まとめ 火花あり/現状渡し 中古【UW100546】",
+        "NA764 ライターまとめ 現状渡し 中古 ジャンク品",
+    ]
+    for title in real_lots:
+        assert _radar_chain_accepts(title) is True, f"LOT THẬT BỊ SÓT: {title}"
 
 
+def test_t107_singles_accessories_and_non_lighters_still_rejected():
+    """T107: Cây lẻ, まとめ買い/複数出品, phụ kiện, IQOS/vape, đồng hồ/nhẫn không kèm ライター vẫn bị loại."""
+    must_reject = [
+        "ダンヒル ライター シルバー 複数出品中 おまとめ取引可",
+        "ZIPPO スターリングシルバー オイルライター 1995年製 まとめ買い歓迎",
+        "ZIPPO スターリングシルバー オイルライター 1995年製",
+        "アイコス イルマ ライター 2点まとめ",
+        "IQOS ILUMA ライター まとめ 3台",
+        "電子タバコ ベイプ ライター まとめ 5個",
+        "ZIPPO 空箱 5点 まとめ ライター用",
+        "ZIPPO 空箱のみ 5点 まとめ",
+        "ライター用 ガスボンベ 3本 まとめ",
+        "ZIPPO インサイドユニット のみ 10個 まとめ ライター",
+        "ライター フリント 20個 まとめ",
+        "ZIPPO 腕時計 まとめ 3点",
+        "シルバーリング 指輪 まとめ 5点 ZIPPO",
+        # Gom phụ kiện ghi 'まとめ': không phải lot bật lửa
+        "ZIPPO ライターケース 3点 まとめ 革",
+        "ライター オイル 3本 まとめ ZIPPO",
+        "ライター 化粧箱 5個 まとめ",
+        "ZIPPO ライター 箱 5点 まとめ",
+    ]
+    for title in must_reject:
+        assert _radar_chain_accepts(title) is False, f"LẼ RA PHẢI BỊ LOẠI: {title}"
 
 
+def test_t108_lot_count_keywords_and_exclusion_helpers():
+    """T108: Đếm 'N品おまとめ', bỏ qua cụm まとめ買い/複数出品, リング chỉ loại nhẫn chứ không loại スターリング."""
+    import radar_service as rs
+    from parser import _has_lot_keyword, extract_actual_lighter_count
+
+    assert extract_actual_lighter_count("ブランドライター　6品おまとめ　dunhill　ダンヒル", "")[0] == 6
+    assert extract_actual_lighter_count("ライター 3品セット デュポン", "")[0] == 3
+
+    assert _has_lot_keyword("ZIPPO ライター まとめ 斜め") is True
+    assert _has_lot_keyword("ZIPPO ライター いろいろセット") is True
+    assert _has_lot_keyword("ダンヒル ライター 複数出品中 おまとめ取引可") is False
+    assert _has_lot_keyword("ZIPPO ライター まとめ買い歓迎") is False
+    assert _has_lot_keyword("ZIPPO ライター 同梱可 まとめて発送") is False
+    assert _has_lot_keyword("ZIPPO ライターケース まとめ") is False
+    assert _has_lot_keyword("ジッポ ZIPPO ライター まとめ 等 レザーケース 火花着火未確認") is True
+    assert _has_lot_keyword("Zippo ジッポ ケース付き ライター いろいろセット") is True
+
+    assert rs._is_non_lighter_title("ZIPPO スターリングシルバー オイルライター") is False
+    assert rs._is_non_lighter_title("シルバーリング 指輪 ZIPPO") is True
+    assert rs._is_non_lighter_title("ZIPPO ライター まとめ 時計 等") is False
+    assert rs._is_non_lighter_title("ZIPPO 懐中時計") is True
+    assert rs._is_non_lighter_title("アイコス ライター まとめ") is True
+    assert rs._is_non_lighter_title("") is False
 
 
+async def _no_sleep(*_args, **_kwargs):
+    return None
 
 
+def test_t109_category_bid_sweep_pages_until_zero_bid():
+    """T109: Quét trọn danh mục theo bid: lật trang tới phiên 0 bid, tự đảo o1 nếu Yahoo đảo chiều sắp xếp."""
+    import asyncio
+    from unittest.mock import patch
+    import radar_service as rs
+
+    def _page(n, start_bids, last_zero=False):
+        rows = [{"auction_id": f"a{start_bids}_{i}", "title": "ZIPPO ライター まとめ", "bids": max(1, start_bids - i)} for i in range(n)]
+        if last_zero:
+            rows[-1]["bids"] = 0
+        return rows
+
+    # 1. o1=a đúng chiều 'nhiều bid trước': trang 1, 2 đầy; trang 3 có phiên 0 bid ở cuối -> dừng, không nạp trang 4-5
+    calls = []
+    pages_a = {1: _page(100, 500), 101: _page(100, 300), 201: _page(40, 100, last_zero=True),
+               301: _page(100, 0, last_zero=True), 401: _page(100, 0, last_zero=True)}
+
+    async def fake_fetch(query="", limit=100, category_id="", offset=1, sort_key="end", sort_order="a"):
+        calls.append((offset, sort_key, sort_order))
+        return pages_a.get(offset, []) if sort_order == "a" else []
+
+    rs._BID_SWEEP_CACHE.clear()
+    with patch.object(rs, "fetch_yahoo_search_full_blocks", side_effect=fake_fetch):
+        got = asyncio.run(rs.fetch_category_bid_sweep("26138"))
+    assert len(got) == 240
+    assert all(c[1] == "bids" and c[2] == "a" for c in calls)
+    assert {c[0] for c in calls} >= {1, 101, 201}
+
+    # 2. Yahoo đảo chiều: o1=a trả phiên 0 bid đầu tiên -> tự chuyển sang o1=d
+    calls.clear()
+    pages_d = {1: _page(100, 400), 101: _page(10, 50, last_zero=True)}
+
+    async def fake_fetch_flip(query="", limit=100, category_id="", offset=1, sort_key="end", sort_order="a"):
+        calls.append((offset, sort_key, sort_order))
+        if sort_order == "a":
+            return [{"auction_id": "z0", "title": "x", "bids": 0}] * 100
+        return pages_d.get(offset, [])
+
+    rs._BID_SWEEP_CACHE.clear()
+    with patch.object(rs, "fetch_yahoo_search_full_blocks", side_effect=fake_fetch_flip):
+        got = asyncio.run(rs.fetch_category_bid_sweep("26138"))
+    assert len(got) == 110
+    assert any(c == (101, "bids", "d") for c in calls)
+
+    # 3. Danh mục không có phiên nào có bid -> chỉ trả trang đầu, không lật tiếp
+    calls.clear()
+
+    async def fake_fetch_empty(query="", limit=100, category_id="", offset=1, sort_key="end", sort_order="a"):
+        calls.append((offset, sort_key, sort_order))
+        return [{"auction_id": "z0", "title": "x", "bids": 0}] * 100
+
+    rs._BID_SWEEP_CACHE.clear()
+    with patch.object(rs, "fetch_yahoo_search_full_blocks", side_effect=fake_fetch_empty):
+        got = asyncio.run(rs.fetch_category_bid_sweep("26138"))
+    assert all(c[0] == 1 for c in calls)
+
+    # 4. Gọi lại trong 4 phút -> dùng lại kết quả, không tải thêm trang; bản trả về là bản sao độc lập
+    rs._BID_SWEEP_CACHE.clear()
+    calls.clear()
+    with patch.object(rs, "fetch_yahoo_search_full_blocks", side_effect=fake_fetch):
+        first = asyncio.run(rs.fetch_category_bid_sweep("26138"))
+        n_calls = len(calls)
+        first[0]["remain_text"] = "đã sửa ở lượt trước"
+        again = asyncio.run(rs.fetch_category_bid_sweep("26138"))
+    assert len(again) == 240 and len(calls) == n_calls
+    assert "remain_text" not in again[0]
+
+    # 5. Lượt quét bị Yahoo lỗi giữa chừng -> không lưu cache, lượt sau quét lại từ đầu
+    rs._BID_SWEEP_CACHE.clear()
+    calls.clear()
+    pages_err = {1: _page(100, 500), 101: [], 201: _page(40, 100, last_zero=True)}
+
+    async def fake_fetch_err(query="", limit=100, category_id="", offset=1, sort_key="end", sort_order="a"):
+        calls.append((offset, sort_key, sort_order))
+        return pages_err.get(offset, _page(100, 0, last_zero=True))
+
+    with patch.object(rs, "fetch_yahoo_search_full_blocks", side_effect=fake_fetch_err),             patch("asyncio.sleep", new=_no_sleep):
+        asyncio.run(rs.fetch_category_bid_sweep("26138"))
+    assert "26138" not in rs._BID_SWEEP_CACHE
+    rs._BID_SWEEP_CACHE.clear()
 
 
+def test_t110_search_shipping_fee_only_when_fixed():
+    """T110: Phí ship lấy từ trang tìm kiếm: miễn phí = 0, phí cố định (SINGLE/QUANTITY) = số yên, còn lại = None."""
+    import asyncio
+    import json as _json
+    from unittest.mock import AsyncMock, patch
+    from radar_service import fetch_yahoo_search_full_blocks
+
+    def _it(aid, **kw):
+        base = {"auctionId": aid, "title": f"ZIPPO ライター まとめ {aid}", "price": 1000, "bidCount": 2,
+                "endTime": "2026-11-11T23:00:00+09:00", "imageUrl": ""}
+        base.update(kw)
+        return base
+
+    listing = [
+        _it("free", isFreeShipping=True, hasShippingFee=True, currentPriceShippingFeeType="SINGLE", currentPriceShippingFee=0),
+        _it("single", isFreeShipping=False, hasShippingFee=True, currentPriceShippingFeeType="SINGLE", currentPriceShippingFee=800),
+        _it("qty", isFreeShipping=False, hasShippingFee=True, currentPriceShippingFeeType="QUANTITY", currentPriceShippingFee=1200),
+        _it("amount", isFreeShipping=False, hasShippingFee=True, currentPriceShippingFeeType="AMOUNT", currentPriceShippingFee=690),
+        _it("pref", isFreeShipping=False, hasShippingFee=True, currentPriceShippingFeeType="PREFECTURE", currentPriceShippingFee=800),
+        _it("size", isFreeShipping=False, hasShippingFee=True, currentPriceShippingFeeType="SIZE_WEIGHT", currentPriceShippingFee=1440),
+        _it("none", isFreeShipping=False, hasShippingFee=False, currentPriceShippingFeeType=None, currentPriceShippingFee=None),
+    ]
+    next_data = {"props": {"pageProps": {"initialState": {"search": {"items": {"listing": {"items": listing}, "totalResultsAvailable": 7}}}}}}
+    html = '<html><script id="__NEXT_DATA__" type="application/json">' + _json.dumps(next_data, ensure_ascii=False) + "</script></html>"
+
+    async def mock_get(url, *args, **kwargs):
+        resp = AsyncMock()
+        resp.status_code = 200
+        resp.text = html
+        return resp
+
+    with patch("httpx.AsyncClient.get", side_effect=mock_get):
+        got = asyncio.run(fetch_yahoo_search_full_blocks(query="", limit=100, category_id="26138", sort_key="bids", sort_order="a"))
+    fee = {x["auction_id"]: x["shipping_fee_jpy"] for x in got}
+    assert fee == {"free": 0, "single": 800, "qty": 1200, "amount": None, "pref": None, "size": None, "none": None}
