@@ -3599,3 +3599,137 @@ def test_t110_search_shipping_fee_only_when_fixed():
         got = asyncio.run(fetch_yahoo_search_full_blocks(query="", limit=100, category_id="26138", sort_key="bids", sort_order="a"))
     fee = {x["auction_id"]: x["shipping_fee_jpy"] for x in got}
     assert fee == {"free": 0, "single": 800, "qty": 1200, "amount": None, "pref": None, "size": None, "none": None}
+
+
+# ---------------------------------------------------------------------------
+# T111 - T112: AI soi ảnh dùng gói Gemini miễn phí (đo thật 11/11/2026: gemini-2.5-flash free chỉ 20 lượt/ngày)
+# ---------------------------------------------------------------------------
+
+def test_t111_ai_vision_parse_ignores_negated_brands():
+    """T111: Câu trả lời thật của AI: hãng nằm trong câu phủ định không được tính, mức đánh giá đọc từ dòng ĐÁNH GIÁ."""
+    from ai_vision_service import parse_gemini_vision_response
+
+    # 1. gemini-3.5-flash-lite, lô 3 cây khắc chữ (b1251176493)
+    t1 = (
+        "- ĐÁNH GIÁ: [TIỀM NĂNG / ĐỒ CỔ Á ĐÔNG]\n"
+        "- THƯƠNG HIỆU PHÁT HIỆN: Chưa thấy hãng Âu-Mỹ danh tiếng (không phải Dunhill, Dupont, Cartier hay Zippo chính hãng).\n"
+        "- ĐIỂM SÁNG: Lô gồm 3 chiếc bật lửa dạng nắp gập bằng kim loại, khắc chữ nổi chìm thủ công.\n"
+        "- ƯỚC TÍNH: ~3 cây"
+    )
+    r1 = parse_gemini_vision_response(t1)
+    assert r1["detected_brands"] == []
+    assert r1["rating"] == "TIỀM NĂNG"
+
+    # 2. gemini-3.1-flash-lite, lô ~100 Zippo phổ thông (k1251129601): BÌNH DÂN, không có Dupont/Dunhill/Cartier
+    t2 = (
+        "Chào bạn, với tư cách là chuyên gia thẩm định bật lửa, tôi đã phân tích kỹ hình ảnh lô hàng bạn cung cấp.\n\n"
+        "- **ĐÁNH GIÁ:** [BÌNH DÂN]\n"
+        "- **THƯƠNG HIỆU PHÁT HIỆN:** Chủ yếu là Zippo (Mỹ) và một số bật lửa gas phổ thông Nhật Bản (có thể có Maruman hoặc Prince đời thấp). "
+        "Không thấy sự xuất hiện của các \"ông lớn\" như S.T. Dupont, Dunhill hay Cartier.\n"
+        "- **ĐIỂM SÁNG:** \n"
+        "    - Lô hàng này tập trung chủ yếu vào Zippo phổ thông (Zippo thường, Zippo in logo, Zippo sơn tĩnh điện). \n"
+        "    - Có một vài cây Zippo vỏ đồng (Brass), nhưng không có cây nào thuộc hàng \"siêu phẩm\" hay bạc khối (Sterling).\n"
+        "- **ƯỚC TÍNH:** ~100 - 110 cây.\n\n"
+        "**Phân tích thêm:** Đây là dạng lô \"hàng xô\" chứ không phải là nguồn để săn tìm đồ quý hiếm (high-end)."
+    )
+    r2 = parse_gemini_vision_response(t2)
+    assert r2["rating"] == "BÌNH DÂN"
+    assert r2["gem_detected"] is False
+    assert r2["detected_brands"] == ["Zippo", "Maruman"]
+    assert "💎" not in r2["summary_short"]
+    assert r2["highlights"].startswith("Lô hàng này")  # không còn gạch đầu dòng thừa '- '
+
+    # 3. AI chép nguyên khuôn mẫu nhiều mức -> không gắn đồ hiếm
+    r3 = parse_gemini_vision_response("- ĐÁNH GIÁ: [CỰC HOT / TIỀM NĂNG / BÌNH DÂN]\n- THƯƠNG HIỆU PHÁT HIỆN: Chưa thấy hãng danh tiếng")
+    assert r3["gem_detected"] is False
+    assert r3["rating"] == "BÌNH DÂN"
+
+    # 4. Có hãng thật -> vẫn nhận (S.T. Dupont viết có dấu chấm)
+    r4 = parse_gemini_vision_response(
+        "- ĐÁNH GIÁ: CỰC HOT\n- THƯƠNG HIỆU PHÁT HIỆN: S.T. Dupont Ligne 2, Dunhill Rollagas\n"
+        "- ĐIỂM SÁNG: 1 cây S.T. Dupont mạ vàng.\n- ƯỚC TÍNH: ~6 cây"
+    )
+    assert r4["gem_detected"] is True
+    assert r4["rating"] == "CỰC HOT"
+    assert r4["detected_brands"] == ["Dupont", "Dunhill"]
+
+
+def test_t112_ai_vision_free_model_chain_and_key_in_header(monkeypatch):
+    """T112: Model hết quota ngày (429) bị bỏ qua tới giờ mở lại, chuyển ngay model kế; key không nằm trong URL; bỏ phần thought."""
+    import asyncio
+    from unittest.mock import patch
+    import ai_vision_service as av
+
+    monkeypatch.delenv("GEMINI_VISION_MODELS", raising=False)
+    av._MODEL_BLOCKED_UNTIL.clear()
+    chain = av._vision_model_chain()
+    assert chain[0] == "gemini-3.1-flash-lite" and "gemini-2.5-flash" in chain
+
+    class _Resp:
+        def __init__(self, status, body):
+            self.status_code = status
+            self._body = body
+            self.text = str(body)
+
+        def json(self):
+            return self._body
+
+    quota_day = {"error": {"code": 429, "message": "You exceeded your current quota", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [
+            {"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier", "quotaValue": "20"}]},
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "18356s"}]}}
+    ok_body = {"candidates": [{"content": {"parts": [
+        {"text": "Thinking: Dupont? Cartier? CỰC HOT?", "thought": True},
+        {"text": "- ĐÁNH GIÁ: [TIỀM NĂNG]\n- THƯƠNG HIỆU PHÁT HIỆN: Zippo\n- ĐIỂM SÁNG: 1 Zippo đồng.\n- ƯỚC TÍNH: ~5 cây"},
+    ]}}]}
+
+    calls = []
+    plan = {}
+
+    async def fake_post(url, *args, **kwargs):
+        model = url.split("/models/")[1].split(":")[0]
+        calls.append((model, url, (kwargs.get("headers") or {}).get("x-goog-api-key")))
+        status, body = plan.get(model, (200, ok_body))
+        return _Resp(status, body)
+
+    try:
+        with patch("httpx.AsyncClient.post", side_effect=fake_post):
+            # 1. Model đầu hết quota ngày -> dùng model kế, kết quả không lẫn phần thought
+            plan.update({"gemini-3.1-flash-lite": (429, quota_day)})
+            res = asyncio.run(av.inspect_lighter_lot_image(b"img", api_key="TEST_KEY_123"))
+            assert res["success"] is True
+            assert res["model"] == "gemini-3.5-flash-lite"
+            assert res["detected_brands"] == ["Zippo"]
+            assert "Thinking" not in res["raw_text"]
+            assert all("key=" not in c[1] and "TEST_KEY_123" not in c[1] for c in calls)
+            assert all(c[2] == "TEST_KEY_123" for c in calls)
+            assert av._MODEL_BLOCKED_UNTIL["gemini-3.1-flash-lite"] > 0
+
+            # 2. Lượt sau không gọi lại model đã hết quota
+            calls.clear()
+            res = asyncio.run(av.inspect_lighter_lot_image(b"img", api_key="TEST_KEY_123"))
+            assert res["success"] is True
+            assert [c[0] for c in calls] == ["gemini-3.5-flash-lite"]
+
+            # 3. Quá tải 503 -> chuyển model kế nhưng KHÔNG khóa model đó
+            av._MODEL_BLOCKED_UNTIL.clear()
+            calls.clear()
+            plan.clear()
+            plan.update({"gemini-3.1-flash-lite": (503, {"error": {"code": 503, "message": "high demand"}})})
+            res = asyncio.run(av.inspect_lighter_lot_image(b"img", api_key="TEST_KEY_123"))
+            assert res["success"] is True and res["model"] == "gemini-3.5-flash-lite"
+            assert "gemini-3.1-flash-lite" not in av._MODEL_BLOCKED_UNTIL
+
+            # 4. Mọi model hết quota -> báo lỗi rõ ràng, lượt sau không gửi request nào
+            av._MODEL_BLOCKED_UNTIL.clear()
+            plan.clear()
+            for m in chain:
+                plan[m] = (429, quota_day)
+            res = asyncio.run(av.inspect_lighter_lot_image(b"img", api_key="TEST_KEY_123"))
+            assert res["success"] is False and "quota" in res["error"]
+            calls.clear()
+            res = asyncio.run(av.inspect_lighter_lot_image(b"img", api_key="TEST_KEY_123"))
+            assert res["success"] is False and calls == []
+            assert "hết quota" in res["error"]
+    finally:
+        av._MODEL_BLOCKED_UNTIL.clear()
