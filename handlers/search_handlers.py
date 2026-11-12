@@ -1118,11 +1118,29 @@ async def search_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             chat_id = query.message.chat_id
             trigger_at = time.time() + wait_secs
 
-            from repository import add_auction_alarm
+            from repository import add_auction_alarm, has_auction_alarm
+            # Lô đã có báo thức cho chat này (tự đặt hoặc radar tự đặt) -> không tạo thêm, chỉ nhắc 1 lần
+            if has_auction_alarm(conn, auc_id, chat_id):
+                await query.message.reply_html(
+                    f"⏰ Lô <b>#{auc_id}</b> đã được hẹn giờ canh tàn phiên rồi, bot chỉ nhắc 1 lần."
+                )
+                return
+
             alarm_id = add_auction_alarm(conn, auc_id, chat_id, title, price, url, end_iso, trigger_at)
 
             async def _alarm_coro(aid=alarm_id, db_p=db_path):
                 await asyncio.sleep(wait_secs)
+                # Giành quyền gửi trước: vòng kiểm báo thức 60 s của bot có thể đã gửi rồi
+                if aid:
+                    c0 = get_db_connection(db_p)
+                    try:
+                        from repository import claim_alarm
+                        if not claim_alarm(c0, aid):
+                            return
+                    except Exception:
+                        pass
+                    finally:
+                        c0.close()
                 p_text = f" (Giá hiện tại: {price:,} yên)".replace(",", ".") if price else ""
                 alert_msg = (
                     f"🚨 <b>BÁO ĐỘNG TÀN PHIÊN (CÒN 15 PHÚT NỮA HẾT GIỜ)!</b>\n"

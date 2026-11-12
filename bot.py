@@ -5,6 +5,7 @@ import logging
 import sys
 import time
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
+from telegram.error import Forbidden, TimedOut
 from telegram.request import HTTPXRequest
 from telegram.ext import (
     AIORateLimiter,
@@ -179,6 +180,47 @@ async def download_image_bytes(url: str, timeout: float = 6.0) -> bytes | None:
     return None
 
 
+def _maybe_delivered_timeout(err: BaseException) -> bool:
+    """Quá giờ đọc/ghi: Telegram có thể ĐÃ nhận tin dù bot báo lỗi. Pool timeout = tin chưa được gửi đi."""
+    return isinstance(err, TimedOut) and "pool" not in str(err).lower()
+
+
+async def send_lot_alert_once(bot, chat_id: int, photo_bytes: bytes | None, text: str, aid: str = "") -> bool:
+    """Gửi tin báo 1 lô tới 1 chat, tối đa 1 tin. True = đã gửi (hoặc có thể đã tới nơi).
+
+    - Gửi ảnh lỗi rõ ràng (ảnh hỏng, caption quá dài...) mới thử gửi bản chữ.
+    - Gửi ảnh quá giờ: Telegram có thể đã nhận, không gửi thêm bản chữ (tránh 1 lô 2 tin).
+    - Chat đã chặn bot (Forbidden): bỏ qua, không thử bản chữ.
+    """
+    if photo_bytes:
+        try:
+            await bot.send_photo(chat_id=chat_id, photo=photo_bytes, caption=text, parse_mode="HTML")
+            return True
+        except Forbidden as err:
+            logger.warning(f"Lỗi gửi photo bytes lô {aid} tới {chat_id}: {err}. Bỏ qua chat này.")
+            return False
+        except Exception as err:
+            if _maybe_delivered_timeout(err):
+                logger.warning(f"Gửi ảnh lô {aid} tới {chat_id} quá giờ ({err}), có thể đã tới nơi: không gửi thêm bản chữ.")
+                return True
+            logger.warning(f"Lỗi gửi photo bytes lô {aid} tới {chat_id}: {err}. Thử fallback send_message...")
+
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="HTML",
+            disable_web_page_preview=False,
+        )
+        return True
+    except Exception as err:
+        if _maybe_delivered_timeout(err):
+            logger.warning(f"Gửi tin lô {aid} tới {chat_id} quá giờ ({err}), có thể đã tới nơi: không gửi lại.")
+            return True
+        logger.warning(f"Lỗi gửi tin text lô {aid} tới {chat_id}: {err}")
+        return False
+
+
 async def post_init(application: Application) -> None:
     """Tự động khởi động các worker chạy nền an toàn (Báo thức đấu giá & Radar tự động)."""
     cfg = application.bot_data.get("config")
@@ -190,7 +232,7 @@ async def post_init(application: Application) -> None:
     # 1. Vòng lặp kiểm tra báo thức đấu giá định kỳ mỗi 60 giây (bền bỉ, an toàn khi restart)
     async def _alarm_poller_loop():
         import time
-        from repository import get_pending_alarms, mark_alarm_sent
+        from repository import claim_alarm, get_pending_alarms
 
         logger.info("Đã kích hoạt vòng lặp Poller giám sát báo thức tàn phiên đấu giá (chu kỳ 60s).")
         while True:
@@ -208,6 +250,15 @@ async def post_init(application: Application) -> None:
                     chat_id = a["chat_id"]
                     trigger_at = a["trigger_at_ts"]
                     if trigger_at <= now:
+                        # Giành quyền gửi trước: báo thức đã được nơi khác gửi thì bỏ qua (chỉ gửi 1 lần)
+                        c = get_db_connection(cfg.db_path)
+                        try:
+                            claimed = claim_alarm(c, alarm_id)
+                        finally:
+                            c.close()
+                        if not claimed:
+                            continue
+
                         title = a["title"]
                         price = a["price_jpy"]
                         url = a["url"]
@@ -222,12 +273,6 @@ async def post_init(application: Application) -> None:
                             await application.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
                         except Exception as send_err:
                             logger.warning(f"Không thể gửi báo thức {alarm_id}: {send_err}")
-
-                        c = get_db_connection(cfg.db_path)
-                        try:
-                            mark_alarm_sent(c, alarm_id)
-                        finally:
-                            c.close()
             except Exception as loop_err:
                 logger.error(f"Lỗi trong vòng lặp báo thức poller: {loop_err}")
 
@@ -243,7 +288,7 @@ async def post_init(application: Application) -> None:
         from repository import (
             get_radar_setting,
             set_radar_setting,
-            is_lot_seen,
+            is_lot_seen_any,
             mark_lot_seen,
             add_auction_alarm,
             has_auction_alarm,
@@ -270,7 +315,8 @@ async def post_init(application: Application) -> None:
                             # 1. Gửi thông báo tức thì (Realtime Alert) & Đánh dấu lô đã gửi thành công vào SQLite
                             for lot in lots:
                                 aid = lot.get("auction_id")
-                                if aid and not is_lot_seen(c, aid, today_vn):
+                                # Lô đã gửi vào bot rồi (bất kể ngày nào) thì không gửi lại
+                                if aid and not is_lot_seen_any(c, aid):
                                     price = lot.get("price_jpy", 0)
                                     price_vnd = round(price * rate)
                                     title = lot.get("title", "Lô bật lửa")
@@ -313,32 +359,9 @@ async def post_init(application: Application) -> None:
                                     any_sent_ok = False
 
                                     for owner_chat_id in target_chat_ids:
-                                        sent_this = False
-                                        if photo_bytes:
-                                            try:
-                                                await application.bot.send_photo(
-                                                    chat_id=owner_chat_id,
-                                                    photo=photo_bytes,
-                                                    caption=alert_text,
-                                                    parse_mode="HTML",
-                                                )
-                                                sent_this = True
-                                                any_sent_ok = True
-                                            except Exception as send_photo_err:
-                                                logger.warning(f"Lỗi gửi photo bytes lô {aid} tới {owner_chat_id}: {send_photo_err}. Thử fallback send_message...")
-
-                                        # Fallback sang gửi tin text nếu không có ảnh hoặc gửi ảnh lỗi
-                                        if not sent_this:
-                                            try:
-                                                await application.bot.send_message(
-                                                    chat_id=owner_chat_id,
-                                                    text=alert_text,
-                                                    parse_mode="HTML",
-                                                    disable_web_page_preview=False,
-                                                )
-                                                any_sent_ok = True
-                                            except Exception as send_msg_err:
-                                                logger.warning(f"Lỗi gửi tin text lô {aid} tới {owner_chat_id}: {send_msg_err}")
+                                        # Gửi ảnh, lỗi rõ ràng mới gửi bản chữ; tối đa 1 tin / lô / chat
+                                        if await send_lot_alert_once(application.bot, owner_chat_id, photo_bytes, alert_text, aid=aid):
+                                            any_sent_ok = True
 
                                         await asyncio.sleep(1.2)
 

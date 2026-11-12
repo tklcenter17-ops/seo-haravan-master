@@ -3733,3 +3733,202 @@ def test_t112_ai_vision_free_model_chain_and_key_in_header(monkeypatch):
             assert "hết quota" in res["error"]
     finally:
         av._MODEL_BLOCKED_UNTIL.clear()
+
+
+# ---------------------------------------------------------------------------
+# T113 - T116: Mỗi lô / mỗi báo thức chỉ gửi vào bot 1 lần
+# (đo thật 12/11/2026: 185/351 lô bị gửi 2 lần, toàn bộ lần 2 lúc 00:xx giờ VN)
+# ---------------------------------------------------------------------------
+
+def test_t113_lot_sent_once_across_vn_midnight(tmp_path):
+    """T113: Lô đã gửi hôm trước (22h-24h VN) qua 0h VN vẫn còn trong danh sách -> không gửi lại."""
+    import inspect
+    import sqlite3
+    import bot
+    from db import init_database
+    from repository import is_lot_seen, is_lot_seen_any, mark_lot_seen
+
+    db_path = tmp_path / "once.db"
+    init_database(str(db_path))
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        # Trường hợp thật x1251261983: gửi 22:02 VN 08/11, lô kết thúc 17:01 JST 09/11
+        assert is_lot_seen_any(conn, "x1251261983") is False
+        mark_lot_seen(conn, "x1251261983", "2026-11-08", "2本まとめ RONSON ガスライター", 1000, 2, "2026-11-09T17:01:17+09:00")
+        assert is_lot_seen(conn, "x1251261983", "2026-11-09") is False  # cách cũ: qua 0h là "chưa thấy" -> gửi lại
+        assert is_lot_seen_any(conn, "x1251261983") is True  # cách mới: đã gửi là thôi
+        assert is_lot_seen_any(conn, "r1251255823") is False
+    finally:
+        conn.close()
+
+    # Vòng radar dùng cách mới, không còn chống trùng theo ngày
+    src = inspect.getsource(bot.post_init)
+    assert "is_lot_seen_any(c, aid)" in src
+    assert "is_lot_seen(c, aid, today_vn)" not in src
+
+
+def test_t114_send_lot_alert_once_no_double_on_timeout():
+    """T114: Gửi ảnh quá giờ (Telegram có thể đã nhận) thì không gửi thêm bản chữ; chat chặn bot thì bỏ qua."""
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest, Forbidden, TimedOut
+    from bot import send_lot_alert_once
+
+    def fake_bot(photo_err=None, text_err=None):
+        return SimpleNamespace(
+            send_photo=AsyncMock(side_effect=photo_err),
+            send_message=AsyncMock(side_effect=text_err),
+        )
+
+    def run(b, photo=b"jpg"):
+        return asyncio.run(send_lot_alert_once(b, 111, photo, "tin lô", aid="x1"))
+
+    # 1. Ảnh gửi được -> đúng 1 tin
+    b = fake_bot()
+    assert run(b) is True
+    assert b.send_photo.await_count == 1 and b.send_message.await_count == 0
+
+    # 2. Ảnh quá giờ đọc/ghi -> coi như đã tới, KHÔNG gửi bản chữ
+    b = fake_bot(photo_err=TimedOut())
+    assert run(b) is True
+    assert b.send_message.await_count == 0
+
+    # 3. Pool timeout = tin chưa đi -> gửi bản chữ 1 lần
+    b = fake_bot(photo_err=TimedOut("Pool timeout: All connections in the connection pool are occupied."))
+    assert run(b) is True
+    assert b.send_message.await_count == 1
+
+    # 4. Ảnh lỗi rõ ràng (caption quá dài) -> gửi bản chữ 1 lần
+    b = fake_bot(photo_err=BadRequest("Message caption is too long"))
+    assert run(b) is True
+    assert b.send_message.await_count == 1
+
+    # 5. Chat đã chặn bot -> không thử bản chữ, báo chưa gửi
+    b = fake_bot(photo_err=Forbidden("Forbidden: bot was blocked by the user"))
+    assert run(b) is False
+    assert b.send_message.await_count == 0
+
+    # 6. Không có ảnh: bản chữ quá giờ -> coi như đã tới (không gửi lại vòng sau); bị chặn -> False
+    b = fake_bot(text_err=TimedOut())
+    assert run(b, photo=None) is True
+    assert b.send_photo.await_count == 0 and b.send_message.await_count == 1
+    b = fake_bot(text_err=Forbidden("Forbidden: bot was blocked by the user"))
+    assert run(b, photo=None) is False
+
+
+def test_t115_claim_alarm_only_one_sender_wins(tmp_path):
+    """T115: Báo thức chỉ được 1 nơi gửi (tác vụ hẹn giờ hoặc vòng kiểm 60 s), nơi thứ hai bỏ qua."""
+    import sqlite3
+    import time
+    from db import init_database
+    from repository import add_auction_alarm, claim_alarm, get_pending_alarms
+
+    db_path = tmp_path / "claim.db"
+    init_database(str(db_path))
+    c1 = sqlite3.connect(str(db_path))
+    c1.row_factory = sqlite3.Row
+    c2 = sqlite3.connect(str(db_path))
+    c2.row_factory = sqlite3.Row
+    try:
+        aid = add_auction_alarm(c1, "v1", 111, "Lô Dupont", 9000, "https://auctions.yahoo.co.jp/jp/auction/v1", "2026-11-12T22:00:00+09:00", time.time())
+        assert len(get_pending_alarms(c1)) == 1
+        assert claim_alarm(c1, aid) is True   # nơi thứ nhất giành được
+        assert claim_alarm(c2, aid) is False  # nơi thứ hai (kết nối khác) bỏ qua
+        assert claim_alarm(c1, aid) is False
+        assert get_pending_alarms(c2) == []
+        assert claim_alarm(c1, 999999) is False  # id không tồn tại
+    finally:
+        c1.close()
+        c2.close()
+
+
+def test_t116_manual_alarm_once_per_lot(tmp_path, monkeypatch):
+    """T116: Bấm 'hẹn giờ' 2 lần / lô đã có báo thức radar -> không tạo báo thức thứ 2; chỉ 1 nơi gửi."""
+    import asyncio
+    import sqlite3
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from db import init_database
+    from handlers.search_handlers import search_callback
+    from repository import add_auction_alarm, claim_alarm
+
+    db_path = tmp_path / "manual_alarm.db"
+    init_database(str(db_path))
+
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(delay, *args, **kwargs):
+        await real_sleep(0)
+
+    monkeypatch.setattr(asyncio, "sleep", fast_sleep)
+
+    tg_bot = SimpleNamespace(send_message=AsyncMock())
+    bot_data = {"config": SimpleNamespace(db_path=str(db_path))}
+    for a in ("k1", "k2", "k3"):
+        bot_data[f"yh_info:{a}"] = {"title": f"Lô {a}", "current_price_jpy": 5000, "end_time": "2099-01-01T00:00:00+09:00"}
+    context = SimpleNamespace(bot=tg_bot, bot_data=bot_data)
+
+    def tap(auc_id):
+        msg = SimpleNamespace(chat_id=111, reply_html=AsyncMock())
+        q = SimpleNamespace(data=f"yh_alarm:{auc_id}", answer=AsyncMock(), message=msg)
+        return SimpleNamespace(callback_query=q), msg
+
+    def query_one(sql, *params):
+        conn = sqlite3.connect(str(db_path))
+        try:
+            return conn.execute(sql, params).fetchone()[0]
+        finally:
+            conn.close()
+
+    def count(auc_id):
+        return query_one("SELECT COUNT(*) FROM auction_alarms WHERE auction_id = ? AND chat_id = 111", auc_id)
+
+    def alarm_id(auc_id):
+        return query_one("SELECT id FROM auction_alarms WHERE auction_id = ?", auc_id)
+
+    def claim(auc_id):
+        conn = sqlite3.connect(str(db_path))
+        try:
+            return claim_alarm(conn, alarm_id(auc_id))
+        finally:
+            conn.close()
+
+    async def main():
+        # 1. Bấm lần 1: tạo 1 báo thức; vòng kiểm 60 s giành gửi trước -> tác vụ hẹn giờ không gửi nữa
+        upd, msg = tap("k1")
+        await search_callback(upd, context)
+        assert count("k1") == 1
+        assert "ĐÃ ĐẶT HẸN GIỜ" in msg.reply_html.await_args.args[0]
+        assert claim("k1") is True
+        for _ in range(5):
+            await real_sleep(0)
+        assert tg_bot.send_message.await_count == 0
+
+        # 2. Bấm lần 2 cùng lô: không tạo thêm, báo đã hẹn
+        upd, msg = tap("k1")
+        await search_callback(upd, context)
+        assert count("k1") == 1
+        assert "đã được hẹn giờ" in msg.reply_html.await_args.args[0]
+
+        # 3. Lô k2: tác vụ hẹn giờ gửi đúng 1 lần, vòng kiểm 60 s tới sau không gửi nữa
+        upd, msg = tap("k2")
+        await search_callback(upd, context)
+        for _ in range(5):
+            await real_sleep(0)
+        assert tg_bot.send_message.await_count == 1
+        assert claim("k2") is False
+
+        # 4. Lô k3 đã có báo thức radar tự đặt -> bấm tay không tạo báo thức thứ 2
+        conn = sqlite3.connect(str(db_path))
+        try:
+            add_auction_alarm(conn, "k3", 111, "Lô k3", 5000, "u", "2099-01-01T00:00:00+09:00", 4070908800.0)
+        finally:
+            conn.close()
+        upd, msg = tap("k3")
+        await search_callback(upd, context)
+        assert count("k3") == 1
+        assert "đã được hẹn giờ" in msg.reply_html.await_args.args[0]
+
+    asyncio.run(main())

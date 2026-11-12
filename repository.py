@@ -576,6 +576,17 @@ def mark_alarm_sent(conn: sqlite3.Connection, alarm_id: int) -> None:
         conn.execute("UPDATE auction_alarms SET is_sent = 1 WHERE id = ?;", (alarm_id,))
 
 
+def claim_alarm(conn: sqlite3.Connection, alarm_id: int) -> bool:
+    """Giành quyền gửi một báo thức (chỉ 1 nơi thắng): True nếu báo thức chưa gửi và nay đã được nhận gửi.
+
+    Báo thức người dùng tự đặt có 2 nơi cùng gửi (tác vụ hẹn giờ riêng + vòng kiểm 60 s);
+    đánh dấu trước khi gửi để không bao giờ gửi 2 lần.
+    """
+    with conn:
+        cur = conn.execute("UPDATE auction_alarms SET is_sent = 1 WHERE id = ? AND is_sent = 0;", (alarm_id,))
+        return cur.rowcount == 1
+
+
 def find_recent_similar_record(conn: sqlite3.Connection, brand: str, line: str = "") -> Record | None:
     """Tìm bản ghi tương tự gần nhất trong kho của user để đối chiếu giá quá khứ."""
     if not brand or brand == "unknown":
@@ -662,6 +673,20 @@ def is_lot_seen(conn: sqlite3.Connection, auction_id: str, seen_date: str) -> bo
     cur.execute(
         "SELECT 1 FROM radar_seen_lots WHERE auction_id = ? AND seen_date = ? LIMIT 1;",
         (auction_id, seen_date),
+    )
+    return cur.fetchone() is not None
+
+
+def is_lot_seen_any(conn: sqlite3.Connection, auction_id: str) -> bool:
+    """Lô này đã từng được gửi vào bot chưa (bất kể ngày nào).
+
+    Radar lấy lô "hôm nay" theo giờ Nhật, lệch ngày VN 2 tiếng: lô báo lúc 22h-24h VN
+    qua 0h VN vẫn còn trong danh sách. Chống trùng theo ngày sẽ gửi lại lần 2, nên chỉ xét auction_id.
+    """
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT 1 FROM radar_seen_lots WHERE auction_id = ? LIMIT 1;",
+        (auction_id,),
     )
     return cur.fetchone() is not None
 
