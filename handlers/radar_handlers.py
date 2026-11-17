@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 from db import get_db_connection
 from radar_service import format_radar_chunks, format_radar_message, scan_today_lighter_lots
 from repository import get_radar_setting, set_radar_setting
+from telegram_cleanup import track_sent
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 except Exception:
                     pass
             for chunk in chunks:
-                await msg.reply_html(chunk, disable_web_page_preview=True)
+                _track(context, msg.chat_id, await msg.reply_html(chunk, disable_web_page_preview=True))
                 await asyncio.sleep(1.0)
         else:
             formatted_text, total_pages = format_radar_message(active_lots, page=1, per_page=8, rate=rate, category_name=cat_name)
@@ -228,18 +229,18 @@ async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 1, total_pages, len(active_lots), is_auto_on, current_mode=brand_mode, min_count=min_c, cond_filter=cond_f
             )
             if wait_msg:
-                await wait_msg.edit_text(
+                _track(context, msg.chat_id, await wait_msg.edit_text(
                     formatted_text,
                     parse_mode="HTML",
                     reply_markup=keyboard,
                     disable_web_page_preview=True,
-                )
+                ))
             else:
-                await msg.reply_html(
+                _track(context, msg.chat_id, await msg.reply_html(
                     formatted_text,
                     reply_markup=keyboard,
                     disable_web_page_preview=True,
-                )
+                ))
     except Exception as e:
         logger.error(f"Lỗi khi thực thi lệnh /radar: {e}", exc_info=True)
         err_text = f"⚠️ <i>Có lỗi xảy ra khi quét Yahoo Auctions: {e}</i>"
@@ -250,6 +251,16 @@ async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 await msg.reply_html(err_text)
         else:
             await msg.reply_html(err_text)
+
+
+def _track(context, chat_id, result, kind: str = "radar") -> None:
+    """Ghi nhớ tin có link vừa gửi để tự xoá sau 46 giờ (không bao giờ làm hỏng việc gửi tin)."""
+    try:
+        cfg = context.bot_data.get("config")
+        if cfg and chat_id is not None:
+            track_sent(cfg.db_path, chat_id, result, kind)
+    except Exception:
+        pass
 
 
 async def radar_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -465,12 +476,12 @@ async def radar_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         chat = query.message.chat if query.message else None
         if chat:
             for chunk in chunks:
-                await context.bot.send_message(
+                _track(context, chat.id, await context.bot.send_message(
                     chat_id=chat.id,
                     text=chunk,
                     parse_mode="HTML",
                     disable_web_page_preview=True,
-                )
+                ))
 
     elif data == "radar_refresh":
         try:
@@ -543,7 +554,7 @@ async def radar_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             media_group.append(InputMediaPhoto(media=lot["image_url"], caption=caption, parse_mode="HTML"))
 
         try:
-            await context.bot.send_media_group(chat_id=query.message.chat_id, media=media_group)
+            _track(context, query.message.chat_id, await context.bot.send_media_group(chat_id=query.message.chat_id, media=media_group))
         except Exception as e:
             logger.error(f"Lỗi khi gửi album ảnh: {e}")
             fallback_text = "📸 <b>Danh sách ảnh các lô hôm nay:</b>\n" + "\n".join([
@@ -592,7 +603,7 @@ async def radar_img_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
         await wait_msg.delete()
         try:
-            await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group)
+            _track(context, msg.chat_id, await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group))
         except Exception as e:
             logger.error(f"Lỗi khi gửi album ảnh: {e}", exc_info=True)
             fallback_text = "📸 <b>Danh sách ảnh các lô hôm nay:</b>\n" + "\n".join([
@@ -666,9 +677,9 @@ async def img_detail_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await wait_msg.delete()
             try:
                 if len(media_group) >= 2:
-                    await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group)
+                    _track(context, msg.chat_id, await context.bot.send_media_group(chat_id=msg.chat_id, media=media_group))
                 else:
-                    await context.bot.send_photo(chat_id=msg.chat_id, photo=media_group[0].media, caption=media_group[0].caption, parse_mode="HTML")
+                    _track(context, msg.chat_id, await context.bot.send_photo(chat_id=msg.chat_id, photo=media_group[0].media, caption=media_group[0].caption, parse_mode="HTML"))
             except Exception as send_err:
                 logger.error(f"Lỗi khi gửi media group #{aid}: {send_err}")
                 img_links = "\n".join([f"• <a href='{u}'>Ảnh chi tiết {idx+1}</a>" for idx, u in enumerate(imgs[:8]) if u and u.startswith("http")])

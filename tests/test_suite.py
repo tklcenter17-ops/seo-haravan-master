@@ -3932,3 +3932,290 @@ def test_t116_manual_alarm_once_per_lot(tmp_path, monkeypatch):
         assert "đã được hẹn giờ" in msg.reply_html.await_args.args[0]
 
     asyncio.run(main())
+
+
+# ---------------------------------------------------------------------------
+# T117 - T122: Tự xoá tin có link bot đã gửi (Telegram chỉ cho xoá tin dưới 48 giờ, xoá ở 46 giờ)
+# ---------------------------------------------------------------------------
+
+def test_t117_sent_messages_table_migrates_old_db_and_tracking(tmp_path):
+    """T117: DB cũ chưa có bảng sent_messages được thêm bảng mà không mất dữ liệu; ghi nhớ không trùng."""
+    import sqlite3
+    import time
+    from db import get_db_connection, init_database
+    from repository import delete_sent_message_rows, get_sent_messages_due, track_sent_message
+
+    db_path = tmp_path / "old.db"
+    old = sqlite3.connect(str(db_path))
+    old.execute("CREATE TABLE radar_seen_lots (id INTEGER PRIMARY KEY AUTOINCREMENT, auction_id TEXT NOT NULL, seen_date TEXT NOT NULL, title TEXT NOT NULL, price_jpy INTEGER NOT NULL, bids INTEGER NOT NULL DEFAULT 0, end_time TEXT NOT NULL, sent_at TEXT NOT NULL)")
+    old.execute("INSERT INTO radar_seen_lots (auction_id, seen_date, title, price_jpy, bids, end_time, sent_at) VALUES ('a1','2026-11-17','t',1,0,'e','s')")
+    old.commit()
+    old.close()
+
+    init_database(str(db_path))
+    init_database(str(db_path))  # chạy lại không lỗi
+    conn = get_db_connection(db_path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM radar_seen_lots").fetchone()[0] == 1  # dữ liệu cũ còn nguyên
+        now = time.time()
+        track_sent_message(conn, 111, 10, "lot", now - 100 * 3600)
+        track_sent_message(conn, 111, 10, "lot", now)  # trùng (chat, message) -> bỏ qua
+        track_sent_message(conn, 111, 11, "alarm", now - 10 * 3600)
+        track_sent_message(conn, 222, 10, "lot", now - 100 * 3600)  # cùng message_id khác chat vẫn ghi
+        assert conn.execute("SELECT COUNT(*) FROM sent_messages").fetchone()[0] == 3
+        due = get_sent_messages_due(conn, now - 46 * 3600)
+        assert sorted((r["chat_id"], r["message_id"]) for r in due) == [(111, 10), (222, 10)]
+        assert delete_sent_message_rows(conn, [r["id"] for r in due]) == 2
+        assert [r["message_id"] for r in get_sent_messages_due(conn, now)] == [11]
+        assert delete_sent_message_rows(conn, []) == 0
+    finally:
+        conn.close()
+
+
+def test_t118_cleanup_old_messages_rules(tmp_path):
+    """T118: Xoá đúng mốc 46 giờ, theo lô 100, xử lý từng loại lỗi Telegram, giữ lại khi lỗi tạm thời."""
+    import asyncio
+    import time
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest, Forbidden, NetworkError, RetryAfter, TimedOut
+    from db import get_db_connection, init_database
+    from repository import track_sent_message
+    from telegram_cleanup import cleanup_old_messages
+
+    db_path = tmp_path / "cleanup.db"
+    init_database(str(db_path))
+    now = time.time()
+
+    def seed(rows):
+        conn = get_db_connection(db_path)
+        try:
+            conn.execute("DELETE FROM sent_messages")
+            for chat, mid, age_h in rows:
+                track_sent_message(conn, chat, mid, "lot", now - age_h * 3600)
+        finally:
+            conn.close()
+
+    def left():
+        conn = get_db_connection(db_path)
+        try:
+            return sorted((r[0], r[1]) for r in conn.execute("SELECT chat_id, message_id FROM sent_messages"))
+        finally:
+            conn.close()
+
+    def run(bot, hours=46.0):
+        return asyncio.run(cleanup_old_messages(bot, db_path, hours=hours, now=now))
+
+    def fake_bot(**kw):
+        return SimpleNamespace(delete_messages=AsyncMock(**kw), delete_message=AsyncMock())
+
+    # 1. Chỉ xoá tin đủ 46 giờ; tin 45 giờ giữ lại; tin quá 47h50 bỏ ghi nhớ mà không gọi Telegram
+    seed([(1, 1, 45.0), (1, 2, 46.5), (1, 3, 47.0), (1, 4, 48.5), (1, 5, 100.0)])
+    b = fake_bot()
+    st = run(b)
+    assert b.delete_messages.await_count == 1
+    assert b.delete_messages.await_args.kwargs == {"chat_id": 1, "message_ids": [3, 2]} or sorted(b.delete_messages.await_args.kwargs["message_ids"]) == [2, 3]
+    assert st["deleted"] == 2 and st["dropped"] == 2
+    assert left() == [(1, 1)]
+
+    # 2. 250 tin -> 3 lần gọi (100 + 100 + 50), mỗi chat riêng
+    seed([(1, i, 50.0 - 0.001 * i) for i in range(1, 251)] + [(2, 1, 46.2)])
+    b = fake_bot()
+    st = run(b)
+    sizes = sorted(len(c.kwargs["message_ids"]) for c in b.delete_messages.await_args_list)
+    # 50 giờ > 47h50 nên 250 tin kia bị bỏ ghi nhớ; chỉ chat 2 gọi Telegram
+    assert st["dropped"] == 250 and st["deleted"] == 1 and sizes == [1]
+    seed([(1, i, 46.5 + 0.0001 * i) for i in range(1, 251)])
+    b = fake_bot()
+    st = run(b)
+    assert sorted(len(c.kwargs["message_ids"]) for c in b.delete_messages.await_args_list) == [50, 100, 100]
+    assert st["deleted"] == 250 and left() == []
+
+    # 3. Chat chặn bot (Forbidden): bỏ ghi nhớ hết tin chat đó, vẫn xoá chat khác
+    seed([(1, 1, 46.5), (1, 2, 46.6), (2, 1, 46.5)])
+    b = fake_bot(side_effect=[Forbidden("Forbidden: bot was blocked by the user"), True])
+    st = run(b)
+    assert st["dropped"] == 2 and st["deleted"] == 1 and left() == []
+
+    # 4. Lỗi mạng / quá giờ / Telegram bảo chờ: giữ lại tất cả, dừng đợt này, lần sau xoá tiếp
+    for err in (NetworkError("net"), TimedOut(), RetryAfter(30)):
+        seed([(1, 1, 46.5), (2, 1, 46.5)])
+        b = fake_bot(side_effect=err)
+        st = run(b)
+        assert b.delete_messages.await_count == 1, err  # dừng ngay, không gọi chat kế
+        assert st["deleted"] == 0 and left() == [(1, 1), (2, 1)], err
+    b = fake_bot()
+    st = run(b)  # lần sau mạng ổn
+    assert st["deleted"] == 2 and left() == []
+
+    # 5. Telegram từ chối cả lô (BadRequest): xoá từng tin; tin đã mất bỏ ghi nhớ; lỗi tạm thời giữ lại
+    seed([(1, 1, 46.5), (1, 2, 46.6), (1, 3, 46.7)])
+    b = fake_bot(side_effect=BadRequest("Message can't be deleted"))
+    b.delete_message = AsyncMock(side_effect=[True, BadRequest("Message to delete not found"), TimedOut()])
+    st = run(b)
+    assert b.delete_message.await_count == 3
+    assert st["deleted"] == 1 and st["dropped"] == 1 and st["kept"] == 1
+    assert len(left()) == 1
+
+    # 6. Tắt (0 giờ) hoặc không có gì đến hạn: không gọi Telegram
+    seed([(1, 1, 46.5)])
+    b = fake_bot()
+    assert run(b, hours=0) == {"deleted": 0, "dropped": 0, "kept": 0}
+    assert b.delete_messages.await_count == 0 and left() == [(1, 1)]
+    seed([(1, 1, 5.0)])
+    b = fake_bot()
+    run(b)
+    assert b.delete_messages.await_count == 0 and left() == [(1, 1)]
+
+
+def test_t119_delete_after_hours_env_and_track_sent_safety(tmp_path, monkeypatch):
+    """T119: Mốc xoá đọc từ môi trường, kẹp 0..47 giờ; ghi nhớ tin chịu được dữ liệu lạ và không bao giờ báo lỗi."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from db import get_db_connection, init_database
+    import telegram_cleanup as tc
+
+    monkeypatch.delenv("LAMQUET_MSG_DELETE_AFTER_HOURS", raising=False)
+    assert tc.delete_after_hours() == 46.0
+    for raw, expect in (("100", 47.0), ("0", 0.0), ("-5", 0.0), ("abc", 46.0), ("12", 12.0), ("  ", 46.0)):
+        monkeypatch.setenv("LAMQUET_MSG_DELETE_AFTER_HOURS", raw)
+        assert tc.delete_after_hours() == expect, raw
+
+    db_path = tmp_path / "track.db"
+    init_database(str(db_path))
+
+    def count():
+        conn = get_db_connection(db_path)
+        try:
+            return conn.execute("SELECT COUNT(*) FROM sent_messages").fetchone()[0]
+        finally:
+            conn.close()
+
+    tc.track_sent(db_path, 1, SimpleNamespace(message_id=5), "lot")
+    tc.track_sent(db_path, 1, [SimpleNamespace(message_id=6), SimpleNamespace(message_id=7)], "radar")  # album
+    assert count() == 3
+    tc.track_sent(db_path, 1, SimpleNamespace(message_id=5), "lot")  # trùng
+    tc.track_sent(db_path, 1, None, "lot")
+    tc.track_sent(db_path, 1, MagicMock(), "lot")  # message_id không phải số nguyên (test giả) -> bỏ qua
+    tc.track_sent(db_path, 1, SimpleNamespace(message_id=True), "lot")
+    tc.track_sent(db_path, 1, [], "lot")
+    assert count() == 3
+    tc.track_sent(tmp_path / "khong_co_thu_muc" / "x.db", 1, SimpleNamespace(message_id=9), "lot")  # DB hỏng: không ném lỗi
+
+
+def test_t120_send_lot_alert_once_reports_sent_message():
+    """T120: Tin lô gửi được thì on_sent nhận đúng tin để ghi nhớ; gửi lỗi / bị chặn thì không; on_sent lỗi không làm hỏng việc gửi."""
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from telegram.error import Forbidden, TimedOut
+    from bot import send_lot_alert_once
+
+    def run(b, photo=b"jpg", on_sent=None):
+        return asyncio.run(send_lot_alert_once(b, 111, photo, "tin", aid="x1", on_sent=on_sent))
+
+    got = []
+    b = SimpleNamespace(send_photo=AsyncMock(return_value=SimpleNamespace(message_id=41)), send_message=AsyncMock())
+    assert run(b, on_sent=lambda cid, m: got.append((cid, m.message_id))) is True
+    assert got == [(111, 41)]
+
+    got.clear()
+    b = SimpleNamespace(send_photo=AsyncMock(), send_message=AsyncMock(return_value=SimpleNamespace(message_id=42)))
+    assert run(b, photo=None, on_sent=lambda cid, m: got.append((cid, m.message_id))) is True
+    assert got == [(111, 42)]
+
+    got.clear()
+    b = SimpleNamespace(send_photo=AsyncMock(side_effect=Forbidden("blocked")), send_message=AsyncMock())
+    assert run(b, on_sent=lambda cid, m: got.append(m)) is False and got == []
+    b = SimpleNamespace(send_photo=AsyncMock(side_effect=TimedOut()), send_message=AsyncMock())
+    assert run(b, on_sent=lambda cid, m: got.append(m)) is True and got == []  # có thể đã tới nhưng không có id
+
+    def boom(cid, m):
+        raise RuntimeError("ghi nhớ lỗi")
+
+    b = SimpleNamespace(send_photo=AsyncMock(return_value=SimpleNamespace(message_id=43)), send_message=AsyncMock())
+    assert run(b, on_sent=boom) is True
+    assert b.send_message.await_count == 0  # không gửi thêm bản chữ chỉ vì on_sent lỗi
+
+
+def test_t121_alerts_alarms_and_radar_messages_are_tracked(tmp_path, monkeypatch):
+    """T121: Báo thức hẹn giờ và tin radar có link được ghi nhớ; tin dữ liệu / quẹt khác không đụng tới."""
+    import asyncio
+    import inspect
+    import sqlite3
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    import bot
+    from db import init_database
+    from handlers import radar_handlers
+    from handlers.search_handlers import search_callback
+
+    # 1. Báo thức người dùng bấm hẹn giờ: tin nhắc được ghi nhớ
+    db_path = tmp_path / "wire.db"
+    init_database(str(db_path))
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(delay, *a, **k):
+        await real_sleep(0)
+
+    monkeypatch.setattr(asyncio, "sleep", fast_sleep)
+    tg_bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=901)))
+    ctx = SimpleNamespace(bot=tg_bot, bot_data={
+        "config": SimpleNamespace(db_path=str(db_path)),
+        "yh_info:k9": {"title": "Lô k9", "current_price_jpy": 5000, "end_time": "2099-01-01T00:00:00+09:00"},
+    })
+    msg = SimpleNamespace(chat_id=111, reply_html=AsyncMock())
+    q = SimpleNamespace(data="yh_alarm:k9", answer=AsyncMock(), message=msg)
+
+    async def main():
+        await search_callback(SimpleNamespace(callback_query=q), ctx)
+        for _ in range(8):
+            await real_sleep(0)
+
+    asyncio.run(main())
+    conn = sqlite3.connect(str(db_path))
+    try:
+        assert conn.execute("SELECT chat_id, message_id, kind FROM sent_messages").fetchall() == [(111, 901, "alarm")]
+    finally:
+        conn.close()
+
+    # 2. Tin radar (danh sách, album ảnh) qua _track của radar_handlers
+    radar_handlers._track(ctx, 111, [SimpleNamespace(message_id=902), SimpleNamespace(message_id=903)])
+    radar_handlers._track(SimpleNamespace(bot_data={}), 111, SimpleNamespace(message_id=904))  # không có config: bỏ qua
+    conn = sqlite3.connect(str(db_path))
+    try:
+        assert sorted(r[0] for r in conn.execute("SELECT message_id FROM sent_messages")) == [901, 902, 903]
+    finally:
+        conn.close()
+
+    # 3. Vòng nền của bot có ghi nhớ tin lô / báo thức / điểm tin và chạy vòng tự xoá
+    src = inspect.getsource(bot.post_init)
+    assert 'track_sent(cfg.db_path, cid, m, "lot")' in src
+    assert 'track_sent(cfg.db_path, chat_id, sent_alarm, "alarm")' in src
+    assert src.count('"digest")') == 2
+    assert "_telegram_cleanup_loop" in src and "cleanup_old_messages(application.bot, cfg.db_path)" in src
+
+    # 4. Chỉ các điểm gửi có link mới ghi nhớ: lệnh dữ liệu (/data, /view, /stats...) không dùng track_sent
+    import handlers.admin as admin_mod
+    import handlers.data_entry as data_mod
+    import handlers.record_mgmt as rec_mod
+    for mod in (admin_mod, data_mod, rec_mod):
+        assert "track_sent" not in inspect.getsource(mod)
+
+
+def test_t122_prune_keeps_sent_messages_and_existing_retention(tmp_path):
+    """T122: Dọn dữ liệu 3 ngày cũ không động tới bảng sent_messages; vòng tự xoá tự dọn tin quá hạn."""
+    import time
+    from db import get_db_connection, init_database
+    from repository import prune_old_radar_data, track_sent_message
+
+    db_path = tmp_path / "prune.db"
+    init_database(str(db_path))
+    conn = get_db_connection(db_path)
+    try:
+        track_sent_message(conn, 1, 1, "lot", time.time() - 10 * 3600)
+        res = prune_old_radar_data(conn, retention_days=3)
+        assert res["total"] == 0
+        assert conn.execute("SELECT COUNT(*) FROM sent_messages").fetchone()[0] == 1
+    finally:
+        conn.close()

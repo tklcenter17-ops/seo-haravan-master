@@ -1151,7 +1151,9 @@ async def search_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     f"<i>Vào đặt bid ngay kẻo vuột cây ngon anh nhé!</i>"
                 )
                 try:
-                    await context.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
+                    sent_alarm = await context.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
+                    from telegram_cleanup import track_sent
+                    track_sent(db_p, chat_id, sent_alarm, "alarm")
                 except Exception:
                     pass
                 if aid:

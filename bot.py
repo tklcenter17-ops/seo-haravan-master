@@ -45,6 +45,7 @@ from handlers.record_mgmt import (
 from handlers.search_handlers import find_command, quick_add_callback, search_callback, text_search_handler
 from handlers.start import help_command, menu_callback, menu_command, start_command
 from repository import mark_update_processed, register_update_if_new
+from telegram_cleanup import cleanup_old_messages, track_sent
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -185,16 +186,24 @@ def _maybe_delivered_timeout(err: BaseException) -> bool:
     return isinstance(err, TimedOut) and "pool" not in str(err).lower()
 
 
-async def send_lot_alert_once(bot, chat_id: int, photo_bytes: bytes | None, text: str, aid: str = "") -> bool:
+async def send_lot_alert_once(bot, chat_id: int, photo_bytes: bytes | None, text: str, aid: str = "", on_sent=None) -> bool:
     """Gửi tin báo 1 lô tới 1 chat, tối đa 1 tin. True = đã gửi (hoặc có thể đã tới nơi).
 
     - Gửi ảnh lỗi rõ ràng (ảnh hỏng, caption quá dài...) mới thử gửi bản chữ.
     - Gửi ảnh quá giờ: Telegram có thể đã nhận, không gửi thêm bản chữ (tránh 1 lô 2 tin).
     - Chat đã chặn bot (Forbidden): bỏ qua, không thử bản chữ.
+    - on_sent(chat_id, tin_đã_gửi): gọi sau khi gửi được, để ghi nhớ tin tự xoá sau này (lỗi trong on_sent bị bỏ qua).
     """
+    def _noted(sent_msg) -> None:
+        if on_sent is not None:
+            try:
+                on_sent(chat_id, sent_msg)
+            except Exception as note_err:
+                logger.debug(f"on_sent lô {aid} lỗi: {note_err}")
+
     if photo_bytes:
         try:
-            await bot.send_photo(chat_id=chat_id, photo=photo_bytes, caption=text, parse_mode="HTML")
+            _noted(await bot.send_photo(chat_id=chat_id, photo=photo_bytes, caption=text, parse_mode="HTML"))
             return True
         except Forbidden as err:
             logger.warning(f"Lỗi gửi photo bytes lô {aid} tới {chat_id}: {err}. Bỏ qua chat này.")
@@ -206,11 +215,13 @@ async def send_lot_alert_once(bot, chat_id: int, photo_bytes: bytes | None, text
             logger.warning(f"Lỗi gửi photo bytes lô {aid} tới {chat_id}: {err}. Thử fallback send_message...")
 
     try:
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode="HTML",
-            disable_web_page_preview=False,
+        _noted(
+            await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML",
+                disable_web_page_preview=False,
+            )
         )
         return True
     except Exception as err:
@@ -270,7 +281,8 @@ async def post_init(application: Application) -> None:
                             f"👉 <a href='https://buyee.jp/item/yahoo/auction/{auc_id}?lang=vi'>🛒 Mở Buyee để Snipe</a> | <a href='{url}'>Mở Yahoo</a>"
                         )
                         try:
-                            await application.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
+                            sent_alarm = await application.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
+                            track_sent(cfg.db_path, chat_id, sent_alarm, "alarm")
                         except Exception as send_err:
                             logger.warning(f"Không thể gửi báo thức {alarm_id}: {send_err}")
             except Exception as loop_err:
@@ -360,7 +372,10 @@ async def post_init(application: Application) -> None:
 
                                     for owner_chat_id in target_chat_ids:
                                         # Gửi ảnh, lỗi rõ ràng mới gửi bản chữ; tối đa 1 tin / lô / chat
-                                        if await send_lot_alert_once(application.bot, owner_chat_id, photo_bytes, alert_text, aid=aid):
+                                        if await send_lot_alert_once(
+                                            application.bot, owner_chat_id, photo_bytes, alert_text, aid=aid,
+                                            on_sent=lambda cid, m: track_sent(cfg.db_path, cid, m, "lot"),
+                                        ):
                                             any_sent_ok = True
 
                                         await asyncio.sleep(1.2)
@@ -415,12 +430,13 @@ async def post_init(application: Application) -> None:
                                     )
                                     for owner_chat_id in target_chat_ids:
                                         try:
-                                            await application.bot.send_message(
+                                            sent_digest = await application.bot.send_message(
                                                 chat_id=owner_chat_id,
                                                 text=digest_msg,
                                                 parse_mode="HTML",
                                                 disable_web_page_preview=True,
                                             )
+                                            track_sent(cfg.db_path, owner_chat_id, sent_digest, "digest")
                                         except Exception as send_err:
                                             logger.warning(f"Lỗi gửi tin nhắn điểm tin trưa tới {owner_chat_id}: {send_err}")
                                     set_radar_setting(c, noon_key, "1")
@@ -443,12 +459,13 @@ async def post_init(application: Application) -> None:
                                     )
                                     for owner_chat_id in target_chat_ids:
                                         try:
-                                            await application.bot.send_message(
+                                            sent_digest = await application.bot.send_message(
                                                 chat_id=owner_chat_id,
                                                 text=digest_msg,
                                                 parse_mode="HTML",
                                                 disable_web_page_preview=True,
                                             )
+                                            track_sent(cfg.db_path, owner_chat_id, sent_digest, "digest")
                                         except Exception as send_err:
                                             logger.warning(f"Lỗi gửi tin nhắn điểm tin tối tới {owner_chat_id}: {send_err}")
                                     set_radar_setting(c, night_key, "1")
@@ -465,6 +482,19 @@ async def post_init(application: Application) -> None:
     # Bật worker loop tự động chạy nền với cơ chế chống spam
     asyncio.create_task(_radar_worker_loop())
 
+
+    # 3b. Tự xoá các tin có link bot đã gửi quá 46 giờ (Telegram chỉ cho bot xoá tin dưới 48 giờ), kiểm mỗi 10 phút
+    async def _telegram_cleanup_loop():
+        await asyncio.sleep(120)  # Đợi bot ổn định 2 phút sau khi khởi động
+        logger.info("Đã kích hoạt vòng lặp tự xoá tin Telegram cũ (chu kỳ 10 phút).")
+        while True:
+            try:
+                await cleanup_old_messages(application.bot, cfg.db_path)
+            except Exception as clean_err:
+                logger.error(f"Lỗi trong vòng lặp tự xoá tin Telegram: {clean_err}")
+            await asyncio.sleep(600)
+
+    asyncio.create_task(_telegram_cleanup_loop())
 
     # 4. Khởi động vòng lặp tự động dọn dẹp link radar và audit logs cũ quá 3 ngày (chu kỳ 24h)
     async def _auto_clean_worker_loop():

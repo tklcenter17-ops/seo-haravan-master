@@ -712,6 +712,40 @@ def mark_lot_seen(
         )
 
 
+def track_sent_message(conn: sqlite3.Connection, chat_id: int, message_id: int, kind: str, sent_ts: float | None = None) -> None:
+    """Ghi nhớ một tin có link bot vừa gửi để tự xoá sau này (bỏ qua nếu đã ghi)."""
+    import time as _time
+
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO sent_messages (chat_id, message_id, kind, sent_ts) VALUES (?, ?, ?, ?);",
+            (int(chat_id), int(message_id), kind, float(sent_ts if sent_ts is not None else _time.time())),
+        )
+
+
+def get_sent_messages_due(conn: sqlite3.Connection, older_than_ts: float, limit: int = 1000) -> list[dict[str, Any]]:
+    """Các tin đã gửi từ trước mốc older_than_ts (cũ nhất trước), gom theo chat để xoá theo lô."""
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, chat_id, message_id, kind, sent_ts FROM sent_messages WHERE sent_ts <= ? ORDER BY chat_id, sent_ts LIMIT ?;",
+        (older_than_ts, limit),
+    )
+    return [dict(r) for r in cur.fetchall()]
+
+
+def delete_sent_message_rows(conn: sqlite3.Connection, row_ids: list[int]) -> int:
+    """Quên các tin đã xoá xong (hoặc không thể xoá nữa) theo id dòng."""
+    if not row_ids:
+        return 0
+    total = 0
+    with conn:
+        for i in range(0, len(row_ids), 500):
+            part = row_ids[i : i + 500]
+            marks = ",".join("?" for _ in part)
+            total += conn.execute(f"DELETE FROM sent_messages WHERE id IN ({marks});", part).rowcount
+    return total
+
+
 def get_radar_setting(conn: sqlite3.Connection, key: str, default: str = "1") -> str:
     """Lấy giá trị cài đặt radar."""
     cur = conn.cursor()

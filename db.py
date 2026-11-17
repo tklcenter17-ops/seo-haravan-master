@@ -157,6 +157,17 @@ CREATE TABLE IF NOT EXISTS radar_seen_lots (
 );
 CREATE INDEX IF NOT EXISTS idx_radar_seen_aid_date ON radar_seen_lots(auction_id, seen_date);
 
+-- Bảng nhớ các tin có link bot đã gửi vào Telegram để tự xoá sau một thời gian (Telegram chỉ cho bot xoá tin dưới 48 giờ)
+CREATE TABLE IF NOT EXISTS sent_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL,
+    message_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    sent_ts REAL NOT NULL,
+    UNIQUE(chat_id, message_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sent_messages_ts ON sent_messages(sent_ts);
+
 -- Bảng cài đặt radar
 CREATE TABLE IF NOT EXISTS radar_settings (
     key TEXT PRIMARY KEY,
