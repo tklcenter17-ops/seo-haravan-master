@@ -2468,11 +2468,7 @@
         // Any server-side function call: .login(...), .getCrmSyncSnapshot(...), .getAllRows(...)
         return function (...args) {
           const fnName = String(prop);
-          fetch(`/api/gas/${fnName}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ args: args })
-          })
+          callGasApi(fnName, JSON.stringify({ args: args }))
             .then(async function (res) {
               if (!res.ok) {
                 const txt = await res.text();
@@ -2503,6 +2499,39 @@
         };
       }
     });
+  }
+
+  // Gọi thẳng API trên VPS qua HTTPS (pizztkl.com, cùng nước với người dùng) thay vì vòng qua Vercel
+  // (máy chủ nước ngoài -> VPS), đường vòng đó lâu lâu bị kẹt tới 60s làm admin "load hoài".
+  // Dự phòng: đường thẳng lỗi -> tự chuyển sang /api của Vercel cho tới khi tải lại trang.
+  // Hàm chỉ đọc (get/search/check/login...) được tự thử lại qua Vercel; hàm ghi (thêm/sửa/xoá/lưu)
+  // KHÔNG tự gửi lại để tránh ghi trùng — lần bấm sau mới đi qua Vercel.
+  var DIRECT_API_BASE = 'https://pizztkl.com/sales-admin';
+  var directApiDown = false;
+  function isReadOnlyGasFn(name) {
+    return /^(get|search|check)/.test(name) || name === 'login' || name === 'clearCacheAndReload';
+  }
+  function callGasApi(fnName, body) {
+    var path = '/api/gas/' + fnName;
+    var init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body };
+    if (directApiDown) return fetch(path, init);
+    var readOnly = isReadOnlyGasFn(fnName);
+    var ctrl = readOnly && window.AbortController ? new AbortController() : null;
+    var waitMs = (fnName === 'getCrmSyncSnapshot' || fnName === 'clearCacheAndReload') ? 45000 : 20000;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, waitMs) : null;
+    return fetch(DIRECT_API_BASE + path, ctrl ? Object.assign({}, init, { signal: ctrl.signal }) : init)
+      .then(function (res) {
+        if (timer) clearTimeout(timer);
+        if (res.status >= 502 && res.status <= 504) throw new Error('Gateway ' + res.status);
+        return res;
+      })
+      .catch(function (err) {
+        if (timer) clearTimeout(timer);
+        directApiDown = true;
+        console.warn('[GAS Bridge] Đường thẳng VPS lỗi (' + fnName + '), chuyển qua Vercel:', err && err.message);
+        if (!readOnly) throw err;
+        return fetch(path, init);
+      });
   }
 
   window.google = window.google || {};

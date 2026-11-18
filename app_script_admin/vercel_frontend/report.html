@@ -445,8 +445,22 @@ window.startReport = function(D){
     window.parent.postMessage({type: 'report-height', h: h}, location.origin);
   }
 
+  // Gọi thẳng VPS qua HTTPS (nhanh, không vòng qua Vercel); lỗi/quá 45s -> thử lại qua /api của Vercel.
+  var DIRECT_API_BASE = 'https://pizztkl.com/sales-admin';
+  var directDown = false;
+  function post(url, body, ms){
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var t = ctrl ? setTimeout(function(){ ctrl.abort(); }, ms) : null;
+    return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: body, signal: ctrl ? ctrl.signal : undefined})
+      .then(function(r){ if (t) clearTimeout(t); if (r.status >= 502 && r.status <= 504) throw new Error('Gateway ' + r.status); return r; },
+            function(e){ if (t) clearTimeout(t); throw e; });
+  }
   function api(fn, args){
-    return fetch('/api/gas/' + fn, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({args: args || []})})
+    var body = JSON.stringify({args: args || []});
+    var path = '/api/gas/' + fn;
+    var req = directDown ? fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body: body})
+      : post(DIRECT_API_BASE + path, body, 45000).catch(function(){ directDown = true; return fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body: body}); });
+    return req
       .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(j){ if(!j || !j.success) throw new Error((j && j.error) || 'Lỗi máy chủ'); return j.result; });
   }
